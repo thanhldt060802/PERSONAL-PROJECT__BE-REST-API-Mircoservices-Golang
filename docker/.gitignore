@@ -1,0 +1,5 @@
+# Data directory of PostgreSQL
+postgres_data/
+
+# Config files
+.env
