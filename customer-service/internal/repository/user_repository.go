@@ -3,21 +3,16 @@ package repository
 import (
 	"context"
 	"fmt"
-	"thanhldt060802/internal/dto"
+	"thanhldt060802/infrastructure"
 	"thanhldt060802/internal/model"
-
-	"github.com/uptrace/bun"
+	"thanhldt060802/utils"
 )
 
 type userRepository struct {
-	db *bun.DB
 }
 
 type UserRepository interface {
-	ExistsById(ctx context.Context, id int64) (bool, error)
-	ExistsByUsername(ctx context.Context, username string) (bool, error)
-	ExistsByEmail(ctx context.Context, email string) (bool, error)
-	Get(ctx context.Context, offset int, limit int, sortFields []dto.SortField) ([]model.User, error)
+	Get(ctx context.Context, offset int, limit int, sortFields []utils.SortField) ([]model.User, error)
 	GetById(ctx context.Context, id int64) (*model.User, error)
 	GetByUsername(ctx context.Context, username string) (*model.User, error)
 	GetByEmail(ctx context.Context, email string) (*model.User, error)
@@ -26,37 +21,13 @@ type UserRepository interface {
 	DeleteById(ctx context.Context, id int64) error
 }
 
-func NewUserRepository(db *bun.DB) UserRepository {
-	return &userRepository{db: db}
+func NewUserRepository() UserRepository {
+	return &userRepository{}
 }
 
-func (userRepository *userRepository) ExistsById(ctx context.Context, id int64) (bool, error) {
-	count, err := userRepository.db.NewSelect().Model(&model.User{}).Where("id = ?", id).Count(ctx)
-	if err != nil {
-		return false, err
-	}
-	return count > 0, nil
-}
-
-func (userRepository *userRepository) ExistsByUsername(ctx context.Context, username string) (bool, error) {
-	count, err := userRepository.db.NewSelect().Model(&model.User{}).Where("username = ?", username).Count(ctx)
-	if err != nil {
-		return false, err
-	}
-	return count > 0, nil
-}
-
-func (userRepository *userRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
-	count, err := userRepository.db.NewSelect().Model(&model.User{}).Where("email = ?", email).Count(ctx)
-	if err != nil {
-		return false, err
-	}
-	return count > 0, nil
-}
-
-func (userRepository *userRepository) Get(ctx context.Context, offser int, limit int, sortFields []dto.SortField) ([]model.User, error) {
+func (userRepository *userRepository) Get(ctx context.Context, offser int, limit int, sortFields []utils.SortField) ([]model.User, error) {
 	var users []model.User
-	query := userRepository.db.NewSelect().Model(&users).
+	query := infrastructure.DB.NewSelect().Model(&users).
 		Offset(offser).
 		Limit(limit)
 	for _, sortField := range sortFields {
@@ -71,7 +42,7 @@ func (userRepository *userRepository) Get(ctx context.Context, offser int, limit
 
 func (userRepository *userRepository) GetById(ctx context.Context, id int64) (*model.User, error) {
 	var user model.User
-	err := userRepository.db.NewSelect().Model(&user).Where("id = ?", id).Scan(ctx)
+	err := infrastructure.DB.NewSelect().Model(&user).Where("id = ?", id).Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +51,7 @@ func (userRepository *userRepository) GetById(ctx context.Context, id int64) (*m
 
 func (userRepository *userRepository) GetByUsername(ctx context.Context, username string) (*model.User, error) {
 	var user model.User
-	err := userRepository.db.NewSelect().Model(&user).Where("username = ?", username).Scan(ctx)
+	err := infrastructure.DB.NewSelect().Model(&user).Where("username = ?", username).Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +60,7 @@ func (userRepository *userRepository) GetByUsername(ctx context.Context, usernam
 
 func (userRepository *userRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	var user model.User
-	err := userRepository.db.NewSelect().Model(&user).Where("email = ?", email).Scan(ctx)
+	err := infrastructure.DB.NewSelect().Model(&user).Where("email = ?", email).Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -97,16 +68,16 @@ func (userRepository *userRepository) GetByEmail(ctx context.Context, email stri
 }
 
 func (userRepository *userRepository) Create(ctx context.Context, newUser *model.User) error {
-	_, err := userRepository.db.NewInsert().Model(newUser).Exec(ctx)
+	_, err := infrastructure.DB.NewInsert().Model(newUser).Exec(ctx)
 	return err
 }
 
 func (userRepository *userRepository) UpdateById(ctx context.Context, id int64, updatedUser *model.User) error {
-	_, err := userRepository.db.NewUpdate().Model(updatedUser).Where("id = ?", id).Exec(ctx)
+	_, err := infrastructure.DB.NewUpdate().Model(updatedUser).Where("id = ?", id).Exec(ctx)
 	return err
 }
 
 func (userRepository *userRepository) DeleteById(ctx context.Context, id int64) error {
-	_, err := userRepository.db.NewDelete().Model(&model.User{}).Where("id = ?", id).Exec(ctx)
+	_, err := infrastructure.DB.NewDelete().Model(&model.User{}).Where("id = ?", id).Exec(ctx)
 	return err
 }

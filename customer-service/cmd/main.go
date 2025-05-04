@@ -3,13 +3,12 @@ package main
 import (
 	"net/http"
 	"thanhldt060802/config"
-	"thanhldt060802/database"
+	"thanhldt060802/infrastructure"
 	"thanhldt060802/internal/dto"
 	"thanhldt060802/internal/handler"
 	"thanhldt060802/internal/middleware"
 	"thanhldt060802/internal/repository"
 	"thanhldt060802/internal/service"
-	"thanhldt060802/redis"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humagin"
@@ -35,13 +34,12 @@ var humaDocsEmbedded = `<!doctype html>
 func main() {
 
 	config.InitConfig()
+	infrastructure.InitPostgesConnection()
+	defer infrastructure.DB.Close()
+	infrastructure.InitRedisClient()
+	defer infrastructure.RedisClient.Close()
 
-	db := database.ConnectDB()
-	defer db.Close()
-
-	r := gin.Default()
-
-	humaCfg := huma.DefaultConfig("Customer Service", "v1.0.0")
+	humaCfg := huma.DefaultConfig("Catalog Service", "v1.0.0")
 	humaCfg.DocsPath = ""
 	humaCfg.JSONSchemaDialect = ""
 	humaCfg.CreateHooks = nil
@@ -55,12 +53,6 @@ func main() {
 		},
 	}
 
-	api := humagin.New(r, humaCfg)
-
-	r.GET("/docs", func(ctx *gin.Context) {
-		ctx.Data(http.StatusOK, "text/html", []byte(humaDocsEmbedded))
-	})
-
 	huma.NewError = func(status int, msg string, errs ...error) huma.StatusError {
 		details := make([]string, len(errs))
 		for i, err := range errs {
@@ -69,25 +61,40 @@ func main() {
 		res := &dto.ErrorResponse{}
 		res.Status = status
 		res.Message = msg
-		res.Error_ = "Some thing went wrong"
 		res.Details = details
 		return res
 	}
 
-	// Initialize Redis client
-	redisClient := redis.NewClient()
+	r := gin.Default()
+	r.GET("/docs", func(ctx *gin.Context) {
+		ctx.Data(http.StatusOK, "text/html", []byte(humaDocsEmbedded))
+	})
+
+	api := humagin.New(r, humaCfg)
 
 	// Initialize auth middleware
-	authMiddleware := middleware.NewAuthMiddleware(api, redisClient)
+	authMiddleware := middleware.NewAuthMiddleware(api)
 
 	// Initialize repositories
-	userRepository := repository.NewUserRepository(db)
+	userRepository := repository.NewUserRepository()
+	cartRepository := repository.NewCartRepository()
+	cartItemRepository := repository.NewCartItemRepository()
+	invoiceRepository := repository.NewInvoiceRepository()
+	invoiceDetailRepository := repository.NewInvoiceDetailRepository()
 
 	// Initialize services
-	userService := service.NewUserService(userRepository)
+	userService := service.NewUserService(userRepository, cartRepository)
+	cartService := service.NewCartService(cartRepository)
+	cartItemService := service.NewCartItemService(cartItemRepository, cartRepository)
+	invoiceService := service.NewInvoiceService(invoiceRepository)
+	invoiceDetailService := service.NewInvoiceDetailService(invoiceDetailRepository)
 
 	// Initialize handlers
-	handler.NewUserHandler(api, userService, authMiddleware, redisClient)
+	handler.NewUserHandler(api, userService, authMiddleware)
+	handler.NewCartHandler(api, cartService, authMiddleware)
+	handler.NewCartItemHandler(api, cartItemService, authMiddleware)
+	handler.NewInvoiceHandler(api, invoiceService, authMiddleware)
+	handler.NewInvoiceDetailHandler(api, invoiceDetailService, invoiceService, authMiddleware)
 
 	r.Run(":" + config.AppConfig.AppPort)
 

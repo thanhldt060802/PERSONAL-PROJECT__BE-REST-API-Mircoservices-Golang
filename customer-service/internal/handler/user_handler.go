@@ -2,41 +2,24 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"thanhldt060802/config"
 	"thanhldt060802/internal/dto"
 	"thanhldt060802/internal/middleware"
 	"thanhldt060802/internal/service"
-	"thanhldt060802/utils"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/redis/go-redis/v9"
 )
 
 type UserHandler struct {
 	userService    service.UserService
 	authMiddleware *middleware.AuthMiddleware
-	redisClient    *redis.Client
 }
 
-func NewUserHandler(api huma.API, userService service.UserService, authMiddleware *middleware.AuthMiddleware, redisClient *redis.Client) *UserHandler {
+func NewUserHandler(api huma.API, userService service.UserService, authMiddleware *middleware.AuthMiddleware) *UserHandler {
 	userHandler := &UserHandler{
 		userService:    userService,
 		authMiddleware: authMiddleware,
-		redisClient:    redisClient,
 	}
-
-	// Testing for creating user
-	// ################################################################################
-	huma.Register(api, huma.Operation{
-		Method:  http.MethodPost,
-		Path:    "/testcreate",
-		Summary: "/testcreate",
-		Tags:    []string{"Test"},
-	}, userHandler.CreateUser)
-	// ################################################################################
 
 	// Get users
 	huma.Register(api, huma.Operation{
@@ -54,6 +37,26 @@ func NewUserHandler(api huma.API, userService service.UserService, authMiddlewar
 		Path:        "/users/id/{id}",
 		Summary:     "/users/id/{id}",
 		Description: "Get user by id.",
+		Tags:        []string{"User"},
+		Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
+	}, userHandler.GetUserById)
+
+	// Get user by username
+	huma.Register(api, huma.Operation{
+		Method:      http.MethodGet,
+		Path:        "/users/username/{username}",
+		Summary:     "/users/username/{username}",
+		Description: "Get user by username.",
+		Tags:        []string{"User"},
+		Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
+	}, userHandler.GetUserById)
+
+	// Get user by email
+	huma.Register(api, huma.Operation{
+		Method:      http.MethodGet,
+		Path:        "/users/email/{email}",
+		Summary:     "/users/email/{email}",
+		Description: "Get user by email.",
 		Tags:        []string{"User"},
 		Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
 	}, userHandler.GetUserById)
@@ -88,259 +91,257 @@ func NewUserHandler(api huma.API, userService service.UserService, authMiddlewar
 		Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
 	}, userHandler.DeleteUserById)
 
-	// Login account
+	// Login user
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodPost,
 		Path:        "/login",
 		Summary:     "/login",
-		Description: "Login account",
+		Description: "Login user",
 		Tags:        []string{"Auth"},
-	}, userHandler.Login)
+	}, userHandler.LoginUser)
 
-	// Register account
+	// Register user
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodPost,
 		Path:        "/register",
 		Summary:     "/register",
-		Description: "Register account.",
+		Description: "Register user.",
 		Tags:        []string{"User"},
 	}, userHandler.Register)
 
-	// Get account info
+	// Get user using account
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodGet,
-		Path:        "/account-info",
-		Summary:     "/account-info",
-		Description: "Get account info.",
+		Path:        "/my-account",
+		Summary:     "/my-account",
+		Description: "Get user using account",
 		Tags:        []string{"User"},
 		Middlewares: huma.Middlewares{authMiddleware.Authentication},
-	}, userHandler.GetAccountInfo)
+	}, userHandler.GetUserUsingAccount)
 
-	// Update account info
+	// Update user using account
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodPut,
-		Path:        "/account-info",
-		Summary:     "/account-info",
-		Description: "Update account info.",
+		Path:        "/my-account",
+		Summary:     "/my-account",
+		Description: "Update user using account",
 		Tags:        []string{"User"},
 		Middlewares: huma.Middlewares{authMiddleware.Authentication},
-	}, userHandler.UpdateAccountInfo)
+	}, userHandler.UpdateUserUsingAccount)
 
 	return userHandler
 }
 
-func (userHandler *UserHandler) GetUsers(ctx context.Context, queryParam *dto.GetUsersRequestQueryParam) (*dto.SuccessResponse[[]dto.UserDTO], error) {
-	users, err := userHandler.userService.GetUsers(ctx, queryParam)
+func (userHandler *UserHandler) GetUsers(ctx context.Context, reqDTO *dto.GetUsersWithQueryParamRequest) (*dto.PaginationBodyResponseList[dto.UserView], error) {
+	users, err := userHandler.userService.GetUsers(ctx, reqDTO)
 	if err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusInternalServerError
+		res.Code = "ERR_INTERNAL_SERVER"
 		res.Message = "Get users failed"
-		res.Error_ = "Internal Server Error"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	data := dto.ToUserDTOs(users)
-	res := &dto.SuccessResponse[[]dto.UserDTO]{}
-	res.Body.Status = http.StatusOK
+	data := dto.ToListUserView(users)
+	res := &dto.PaginationBodyResponseList[dto.UserView]{}
+	res.Body.Code = "OK"
 	res.Body.Message = "Get users successful"
 	res.Body.Data = data
 	res.Body.Total = len(data)
 	return res, nil
 }
 
-func (userHandler *UserHandler) GetUserById(ctx context.Context, reqDTO *dto.GetUserByIdRequest) (*dto.SuccessResponse[*dto.UserDTO], error) {
-	id := reqDTO.Id
-
-	foundUser, err := userHandler.userService.GetUserById(ctx, id)
+func (userHandler *UserHandler) GetUserById(ctx context.Context, reqDTO *dto.GetUserByIdRequest) (*dto.BodyResponse[dto.UserView], error) {
+	foundUser, err := userHandler.userService.GetUserById(ctx, reqDTO)
 	if err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
+		res.Code = "ERR_BAD_REQUEST"
 		res.Message = "Get user by id failed"
-		res.Error_ = "Bad Request"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	data := dto.ToUserDTO(foundUser)
-	res := &dto.SuccessResponse[*dto.UserDTO]{}
-	res.Body.Status = http.StatusOK
+	data := dto.ToUserView(foundUser)
+	res := &dto.BodyResponse[dto.UserView]{}
+	res.Body.Code = "OK"
 	res.Body.Message = "Get user by id successful"
-	res.Body.Data = data
+	res.Body.Data = *data
 	return res, nil
 }
 
-func (userHandler *UserHandler) CreateUser(ctx context.Context, reqDTO *dto.CreateUserRequest) (*dto.SuccessResponse[any], error) {
-	if err := userHandler.userService.CreateUser(ctx, reqDTO); err != nil {
+func (userHandler *UserHandler) GetUserByUsername(ctx context.Context, reqDTO *dto.GetUserByUsernameRequest) (*dto.BodyResponse[dto.UserView], error) {
+	foundUser, err := userHandler.userService.GetUserByUsername(ctx, reqDTO)
+	if err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
-		res.Message = "Create user failed"
-		res.Error_ = "Bad Request"
+		res.Code = "ERR_BAD_REQUEST"
+		res.Message = "Get user by username failed"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	res := &dto.SuccessResponse[any]{}
-	res.Body.Status = http.StatusOK
+	data := dto.ToUserView(foundUser)
+	res := &dto.BodyResponse[dto.UserView]{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Get user by username successful"
+	res.Body.Data = *data
+	return res, nil
+}
+
+func (userHandler *UserHandler) GetUserByEmail(ctx context.Context, reqDTO *dto.GetUserByEmailRequest) (*dto.BodyResponse[dto.UserView], error) {
+	foundUser, err := userHandler.userService.GetUserByEmail(ctx, reqDTO)
+	if err != nil {
+		res := &dto.ErrorResponse{}
+		res.Status = http.StatusBadRequest
+		res.Code = "ERR_BAD_REQUEST"
+		res.Message = "Get user by email failed"
+		res.Details = []string{err.Error()}
+		return nil, res
+	}
+
+	data := dto.ToUserView(foundUser)
+	res := &dto.BodyResponse[dto.UserView]{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Get user by email successful"
+	res.Body.Data = *data
+	return res, nil
+}
+
+func (userHandler *UserHandler) CreateUser(ctx context.Context, reqDTO *dto.CreateUserRequest) (*dto.SuccessResponse, error) {
+	if err := userHandler.userService.CreateUser(ctx, reqDTO); err != nil {
+		res := &dto.ErrorResponse{}
+		res.Status = http.StatusBadRequest
+		res.Code = "ERR_BAD_REQUEST"
+		res.Message = "Create user failed"
+		res.Details = []string{err.Error()}
+		return nil, res
+	}
+
+	res := &dto.SuccessResponse{}
+	res.Body.Code = "OK"
 	res.Body.Message = "Create user successful"
 	return res, nil
 }
 
-func (userHandler *UserHandler) UpdateUserById(ctx context.Context, reqDTO *dto.UpdateUserRequest) (*dto.SuccessResponse[any], error) {
-	id := reqDTO.Id
-
-	if err := userHandler.userService.UpdateUserById(ctx, id, reqDTO); err != nil {
+func (userHandler *UserHandler) UpdateUserById(ctx context.Context, reqDTO *dto.UpdateUserRequest) (*dto.SuccessResponse, error) {
+	if err := userHandler.userService.UpdateUserById(ctx, reqDTO); err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
+		res.Code = "ERR_BAD_REQUEST"
 		res.Message = "Update user failed"
-		res.Error_ = "Bad Request"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	res := &dto.SuccessResponse[any]{}
-	res.Body.Status = http.StatusOK
+	res := &dto.SuccessResponse{}
+	res.Body.Code = "OK"
 	res.Body.Message = "Update user successful"
 	return res, nil
 }
 
-func (userHandler *UserHandler) DeleteUserById(ctx context.Context, reqDTO *dto.DeleteUserRequest) (*dto.SuccessResponse[any], error) {
-	id := reqDTO.Id
-
-	if err := userHandler.userService.DeleteUserById(ctx, id); err != nil {
+func (userHandler *UserHandler) DeleteUserById(ctx context.Context, reqDTO *dto.DeleteUserRequest) (*dto.SuccessResponse, error) {
+	if err := userHandler.userService.DeleteUserById(ctx, reqDTO); err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
+		res.Code = "ERR_BAD_REQUEST"
 		res.Message = "Delete user failed"
-		res.Error_ = "Bad Request"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	res := &dto.SuccessResponse[any]{}
-	res.Body.Status = http.StatusOK
+	res := &dto.SuccessResponse{}
+	res.Body.Code = "OK"
 	res.Body.Message = "Delete user successful"
 	return res, nil
 }
 
-func (userHandler *UserHandler) Login(ctx context.Context, reqDTO *dto.LoginRequest) (*dto.SuccessResponse[string], error) {
-	foundUser, err := userHandler.userService.GetUserByUsername(ctx, reqDTO.Body.Username)
-	if err != nil {
-		res := &dto.ErrorResponse{}
-		res.Status = http.StatusBadRequest
-		res.Message = "Login failed"
-		res.Error_ = "Bad Request"
-		res.Details = []string{err.Error()}
-		return nil, res
-	}
-
-	if utils.CheckPassword(foundUser.HashedPassword, reqDTO.Body.Password) != nil {
-		res := &dto.ErrorResponse{}
-		res.Status = http.StatusBadRequest
-		res.Message = "Password not matching"
-		res.Error_ = "Bad Request"
-		return nil, res
-	}
-
-	token, err := utils.GenerateToken(foundUser)
+func (userHandler *UserHandler) LoginUser(ctx context.Context, reqDTO *dto.LoginRequest) (*dto.BodyResponse[string], error) {
+	token, err := userHandler.userService.LoginUser(ctx, reqDTO)
 	if err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusInternalServerError
-		res.Message = "Generate token failed"
-		res.Error_ = "Internal Server Error"
+		res.Code = "ERR_INTERNAL_SERVER"
+		res.Message = "Login user failed"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	expireDuration, err := config.AppConfig.GetTokenExpireMinutes()
-	if err != nil {
-		res := &dto.ErrorResponse{}
-		res.Status = http.StatusInternalServerError
-		res.Message = "Cannot parse expire duration for token"
-		res.Error_ = "Internal Server Error"
-		res.Details = []string{err.Error()}
-		return nil, res
-	}
-
-	redisKey := fmt.Sprintf("token:%s", token)
-	userData := map[string]interface{}{
-		"user_id":   foundUser.Id,
-		"role_name": foundUser.RoleName,
-	}
-	userDataBytes, _ := json.Marshal(userData)
-	userHandler.redisClient.SetEx(ctx, redisKey, userDataBytes, *expireDuration)
-
-	res := &dto.SuccessResponse[string]{}
-	res.Body.Status = http.StatusOK
-	res.Body.Message = "Login successful"
-	res.Body.Data = token
+	res := &dto.BodyResponse[string]{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Login user successful"
+	res.Body.Data = *token
 	return res, nil
 }
 
-func (userHandler *UserHandler) Register(ctx context.Context, reqDTO *dto.RegisterRequest) (*dto.SuccessResponse[any], error) {
-	createUserReqDTO := &dto.CreateUserRequest{}
-	createUserReqDTO.Body.FullName = reqDTO.Body.FullName
-	createUserReqDTO.Body.Email = reqDTO.Body.Email
-	createUserReqDTO.Body.Username = reqDTO.Body.Username
-	createUserReqDTO.Body.Password = reqDTO.Body.Password
-	createUserReqDTO.Body.Address = reqDTO.Body.Address
-	createUserReqDTO.Body.RoleName = "CUSTOMER"
+func (userHandler *UserHandler) Register(ctx context.Context, reqDTO *dto.RegisterRequest) (*dto.SuccessResponse, error) {
+	convertReqDTO := &dto.CreateUserRequest{}
+	convertReqDTO.Body.FullName = reqDTO.Body.FullName
+	convertReqDTO.Body.Email = reqDTO.Body.Email
+	convertReqDTO.Body.Username = reqDTO.Body.Username
+	convertReqDTO.Body.Password = reqDTO.Body.Password
+	convertReqDTO.Body.Address = reqDTO.Body.Address
+	convertReqDTO.Body.RoleName = "CUSTOMER"
 
-	if err := userHandler.userService.CreateUser(ctx, createUserReqDTO); err != nil {
+	if err := userHandler.userService.CreateUser(ctx, convertReqDTO); err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
-		res.Message = "Register failed"
-		res.Error_ = "Bad Request"
+		res.Code = "ERR_BAD_REQUEST"
+		res.Message = "Register user failed"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	res := &dto.SuccessResponse[any]{}
-	res.Body.Status = http.StatusOK
-	res.Body.Message = "Register successful"
+	res := &dto.SuccessResponse{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Register user successful"
 	return res, nil
 }
 
-func (userHandler *UserHandler) GetAccountInfo(ctx context.Context, reqDTO *struct{}) (*dto.SuccessResponse[*dto.UserDTO], error) {
-	id := ctx.Value("user_id")
+func (userHandler *UserHandler) GetUserUsingAccount(ctx context.Context, reqDTO *struct{}) (*dto.BodyResponse[dto.UserView], error) {
+	userId := ctx.Value("user_id").(int64)
 
-	foundUser, err := userHandler.userService.GetUserById(ctx, id.(int64))
+	convertReqDTO := &dto.GetUserByIdRequest{Id: userId}
+
+	foundUser, err := userHandler.userService.GetUserById(ctx, convertReqDTO)
 	if err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
-		res.Message = "Get account info failed"
-		res.Error_ = "Bad Request"
+		res.Code = "ERR_BAD_REQUEST"
+		res.Message = "Get user using account failed"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	data := dto.ToUserDTO(foundUser)
-	res := &dto.SuccessResponse[*dto.UserDTO]{}
-	res.Body.Status = http.StatusOK
-	res.Body.Message = "Get account info successful"
-	res.Body.Data = data
+	data := dto.ToUserView(foundUser)
+	res := &dto.BodyResponse[dto.UserView]{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Get user using account successful"
+	res.Body.Data = *data
 	return res, nil
 }
 
-func (userHandler *UserHandler) UpdateAccountInfo(ctx context.Context, reqDTO *dto.UpdateAccountInfoRequest) (*dto.SuccessResponse[any], error) {
-	id := ctx.Value("user_id")
+func (userHandler *UserHandler) UpdateUserUsingAccount(ctx context.Context, reqDTO *dto.UpdateUserUsingAccountRequest) (*dto.SuccessResponse, error) {
+	userId := ctx.Value("user_id").(int64)
 
-	updateUserReqDTO := &dto.UpdateUserRequest{}
-	updateUserReqDTO.Body.FullName = reqDTO.Body.FullName
-	updateUserReqDTO.Body.Email = reqDTO.Body.Email
-	updateUserReqDTO.Body.Password = reqDTO.Body.Password
-	updateUserReqDTO.Body.Address = reqDTO.Body.Address
+	convertReqDTO := &dto.UpdateUserRequest{Id: userId}
+	convertReqDTO.Body.FullName = reqDTO.Body.FullName
+	convertReqDTO.Body.Email = reqDTO.Body.Password
+	convertReqDTO.Body.Password = reqDTO.Body.Password
+	convertReqDTO.Body.Address = reqDTO.Body.Address
 
-	if err := userHandler.userService.UpdateUserById(ctx, id.(int64), updateUserReqDTO); err != nil {
+	if err := userHandler.userService.UpdateUserById(ctx, convertReqDTO); err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
+		res.Code = "ERR_BAD_REQUEST"
 		res.Message = "Update account info failed"
-		res.Error_ = "Bad Request"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	res := &dto.SuccessResponse[any]{}
-	res.Body.Status = http.StatusOK
+	res := &dto.SuccessResponse{}
+	res.Body.Code = "OK"
 	res.Body.Message = "Update account info successful"
 	return res, nil
 }

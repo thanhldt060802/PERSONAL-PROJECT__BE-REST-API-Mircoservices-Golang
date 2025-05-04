@@ -28,6 +28,30 @@ services:
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
     networks:
       - my_docker_network
+  
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: my_docker_elasticsearch
+    restart: always
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=${ES_PASSWORD}
+      - xpack.security.http.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+    ports:
+      - "${ES_PORT}:9200"
+    networks:
+      - my_docker_network
+    volumes:
+      - ./es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -u elastic:${ES_PASSWORD} -s http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 5s
+
 
 networks:
   my_docker_network:

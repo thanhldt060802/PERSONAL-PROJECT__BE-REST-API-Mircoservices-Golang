@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -65,12 +64,13 @@ func GetEnv(key string, defaultValue string) string {
 	}
 }
 
-func (config *Config) GetTokenExpireMinutes() (*time.Duration, error) {
+func (config *Config) GetTokenExpireMinutes() *time.Duration {
 	tokenExpireMinutes, err := strconv.Atoi(AppConfig.TokenExpireMinutes)
 	if err != nil {
-		return nil, fmt.Errorf("value environment variable ACCESS_TOKEN_EXPIRE_MINUTES is not valid")
+		log.Fatal("Value of environment variable ACCESS_TOKEN_EXPIRE_MINUTES is not valid")
+		return nil
 	}
 
 	expireDuration := time.Duration(tokenExpireMinutes) * time.Minute
-	return &expireDuration, nil
+	return &expireDuration
 }

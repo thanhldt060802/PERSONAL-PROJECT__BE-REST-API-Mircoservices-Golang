@@ -2,7 +2,10 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"thanhldt060802/config"
+	"thanhldt060802/infrastructure"
 	"thanhldt060802/internal/dto"
 	"thanhldt060802/internal/model"
 	"thanhldt060802/internal/repository"
@@ -12,102 +15,72 @@ import (
 
 type userService struct {
 	userRepository repository.UserRepository
+	cartRepository repository.CartRepository
 }
 
 type UserService interface {
-	IsUserExistedById(ctx context.Context, id int64) (bool, error)
-	IsUserExistedByUsername(ctx context.Context, username string) (bool, error)
-	IsUserExistedByEmail(ctx context.Context, email string) (bool, error)
-	GetUsers(ctx context.Context, queryParam *dto.GetUsersRequestQueryParam) ([]model.User, error)
-	GetUserById(ctx context.Context, id int64) (*model.User, error)
-	GetUserByUsername(ctx context.Context, username string) (*model.User, error)
-	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
+	GetUsers(ctx context.Context, reqDTO *dto.GetUsersWithQueryParamRequest) ([]model.User, error)
+	GetUserById(ctx context.Context, reqDTO *dto.GetUserByIdRequest) (*model.User, error)
+	GetUserByUsername(ctx context.Context, reqDTO *dto.GetUserByUsernameRequest) (*model.User, error)
+	GetUserByEmail(ctx context.Context, reqDTO *dto.GetUserByEmailRequest) (*model.User, error)
 	CreateUser(ctx context.Context, reqDTO *dto.CreateUserRequest) error
-	UpdateUserById(ctx context.Context, id int64, reqDTO *dto.UpdateUserRequest) error
-	DeleteUserById(ctx context.Context, id int64) error
+	UpdateUserById(ctx context.Context, reqDTO *dto.UpdateUserRequest) error
+	DeleteUserById(ctx context.Context, reqDTO *dto.DeleteUserRequest) error
+
+	LoginUser(ctx context.Context, reqDTO *dto.LoginRequest) (*string, error)
 }
 
-func NewUserService(userRepository repository.UserRepository) UserService {
-	return &userService{userRepository: userRepository}
-}
-
-func (userService *userService) IsUserExistedById(ctx context.Context, id int64) (bool, error) {
-	existed, err := userService.userRepository.ExistsById(ctx, id)
-	if err != nil {
-		return false, fmt.Errorf("get user by id failed: %w", err)
+func NewUserService(userRepository repository.UserRepository, cartRepository repository.CartRepository) UserService {
+	return &userService{
+		userRepository: userRepository,
+		cartRepository: cartRepository,
 	}
-	return existed, nil
 }
 
-func (userService *userService) IsUserExistedByUsername(ctx context.Context, username string) (bool, error) {
-	existed, err := userService.userRepository.ExistsByUsername(ctx, username)
-	if err != nil {
-		return false, fmt.Errorf("get user by username failed: %w", err)
-	}
-	return existed, nil
-}
+func (userService *userService) GetUsers(ctx context.Context, reqDTO *dto.GetUsersWithQueryParamRequest) ([]model.User, error) {
+	sortFields := utils.ParseSortBy(reqDTO.SortBy)
 
-func (userService *userService) IsUserExistedByEmail(ctx context.Context, email string) (bool, error) {
-	existed, err := userService.userRepository.ExistsByEmail(ctx, email)
+	users, err := userService.userRepository.Get(ctx, reqDTO.Offset, reqDTO.Limit, sortFields)
 	if err != nil {
-		return false, fmt.Errorf("get user by email failed: %w", err)
-	}
-	return existed, nil
-}
-
-func (userService *userService) GetUsers(ctx context.Context, queryParam *dto.GetUsersRequestQueryParam) ([]model.User, error) {
-	sortFields := dto.ParseSortBy(queryParam.SortBy)
-
-	users, err := userService.userRepository.Get(ctx, queryParam.Offset, queryParam.Limit, sortFields)
-	if err != nil {
-		return nil, fmt.Errorf("get users failed: %w", err)
+		return nil, err
 	}
 
 	return users, nil
 }
 
-func (userService *userService) GetUserById(ctx context.Context, id int64) (*model.User, error) {
-	foundUser, err := userService.userRepository.GetById(ctx, id)
+func (userService *userService) GetUserById(ctx context.Context, reqDTO *dto.GetUserByIdRequest) (*model.User, error) {
+	foundUser, err := userService.userRepository.GetById(ctx, reqDTO.Id)
 	if err != nil {
-		return nil, fmt.Errorf("get user by id failed: %w", err)
+		return nil, err
 	}
 
 	return foundUser, nil
 }
 
-func (userService *userService) GetUserByUsername(ctx context.Context, username string) (*model.User, error) {
-	foundUser, err := userService.userRepository.GetByUsername(ctx, username)
+func (userService *userService) GetUserByUsername(ctx context.Context, reqDTO *dto.GetUserByUsernameRequest) (*model.User, error) {
+	foundUser, err := userService.userRepository.GetByUsername(ctx, reqDTO.Username)
 	if err != nil {
-		return nil, fmt.Errorf("get user by username failed: %w", err)
+		return nil, err
 	}
 
 	return foundUser, nil
 }
 
-func (userService *userService) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
-	foundUser, err := userService.userRepository.GetByEmail(ctx, email)
+func (userService *userService) GetUserByEmail(ctx context.Context, reqDTO *dto.GetUserByEmailRequest) (*model.User, error) {
+	foundUser, err := userService.userRepository.GetByEmail(ctx, reqDTO.Email)
 	if err != nil {
-		return nil, fmt.Errorf("get user by email failed: %w", err)
+		return nil, err
 	}
 
 	return foundUser, nil
 }
 
 func (userService *userService) CreateUser(ctx context.Context, reqDTO *dto.CreateUserRequest) error {
-	existedByEmail, err := userService.IsUserExistedByEmail(ctx, reqDTO.Body.Email)
-	if err != nil {
-		return err
-	}
-	if existedByEmail {
-		return fmt.Errorf("email of user is already exists")
-	}
-
-	existedByUsername, err := userService.IsUserExistedByUsername(ctx, reqDTO.Body.Username)
-	if err != nil {
-		return err
-	}
-	if existedByUsername {
+	if _, err := userService.userRepository.GetByUsername(ctx, reqDTO.Body.Username); err == nil {
 		return fmt.Errorf("username of user is already exists")
+	}
+	if _, err := userService.userRepository.GetByEmail(ctx, reqDTO.Body.Email); err == nil {
+		return fmt.Errorf("email of user is already exists")
 	}
 
 	hashedPassword, err := utils.HashPassword(reqDTO.Body.Password)
@@ -123,28 +96,31 @@ func (userService *userService) CreateUser(ctx context.Context, reqDTO *dto.Crea
 		Address:        reqDTO.Body.Address,
 		RoleName:       reqDTO.Body.RoleName,
 	}
-
-	return userService.userRepository.Create(ctx, &newUser)
-}
-
-func (userService *userService) UpdateUserById(ctx context.Context, id int64, reqDTO *dto.UpdateUserRequest) error {
-	foundUser, err := userService.GetUserById(ctx, id)
-	if err != nil {
+	if err := userService.userRepository.Create(ctx, &newUser); err != nil {
 		return err
 	}
-	if foundUser == nil {
+
+	newCart := model.Cart{
+		UserId: newUser.Id,
+	}
+	if err := userService.cartRepository.Create(ctx, &newCart); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (userService *userService) UpdateUserById(ctx context.Context, reqDTO *dto.UpdateUserRequest) error {
+	foundUser, err := userService.userRepository.GetById(ctx, reqDTO.Id)
+	if err != nil {
 		return fmt.Errorf("id of user is not valid")
 	}
 
 	if reqDTO.Body.FullName != nil {
 		foundUser.FullName = *reqDTO.Body.FullName
 	}
-	if reqDTO.Body.Email != nil {
-		existedByEmail, err := userService.IsUserExistedByEmail(ctx, *reqDTO.Body.Email)
-		if err != nil {
-			return err
-		}
-		if existedByEmail {
+	if reqDTO.Body.Email != nil && reqDTO.Body.Email != &foundUser.Email {
+		if _, err = userService.userRepository.GetByEmail(ctx, *reqDTO.Body.Email); err == nil {
 			return fmt.Errorf("email of user is already exists")
 		}
 		foundUser.Email = *reqDTO.Body.Email
@@ -164,17 +140,65 @@ func (userService *userService) UpdateUserById(ctx context.Context, id int64, re
 	}
 	foundUser.UpdatedAt = time.Now().UTC()
 
-	return userService.userRepository.UpdateById(ctx, id, foundUser)
-}
-
-func (userService *userService) DeleteUserById(ctx context.Context, id int64) error {
-	existed, err := userService.IsUserExistedById(ctx, id)
-	if err != nil {
+	if err := userService.userRepository.UpdateById(ctx, reqDTO.Id, foundUser); err != nil {
 		return err
 	}
-	if !existed {
+
+	return nil
+}
+
+func (userService *userService) DeleteUserById(ctx context.Context, reqDTO *dto.DeleteUserRequest) error {
+	foundCart, err := userService.cartRepository.GetByUserId(ctx, reqDTO.Id)
+	if err != nil {
+		return fmt.Errorf("user id of cart is not valid")
+	}
+
+	if _, err := userService.userRepository.GetById(ctx, reqDTO.Id); err != nil {
 		return fmt.Errorf("id of user is not valid")
 	}
 
-	return userService.userRepository.DeleteById(ctx, id)
+	if err := userService.cartRepository.DeleteById(ctx, foundCart.Id); err != nil {
+		return err
+	}
+
+	if err := userService.userRepository.DeleteById(ctx, reqDTO.Id); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (userService *userService) LoginUser(ctx context.Context, reqDTO *dto.LoginRequest) (*string, error) {
+	foundUser, err := userService.userRepository.GetByUsername(ctx, reqDTO.Body.Username)
+	if err != nil {
+		return nil, err
+	} else if utils.CheckPassword(foundUser.HashedPassword, reqDTO.Body.Password) != nil {
+		return nil, fmt.Errorf("password does not match")
+	}
+
+	foundCart, err := userService.cartRepository.GetByUserId(ctx, foundUser.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := utils.GenerateToken(foundUser.Id, foundUser.RoleName, foundCart.Id)
+	if err != nil {
+		return nil, fmt.Errorf("generate token failed")
+	}
+
+	expireDuration := config.AppConfig.GetTokenExpireMinutes()
+	if expireDuration == nil {
+		return nil, fmt.Errorf("convert expire failed")
+	}
+
+	redisKey := fmt.Sprintf("token:%s", *token)
+	userData := map[string]interface{}{
+		"user_id":   foundUser.Id,
+		"role_name": foundUser.RoleName,
+		"cart_id":   foundCart.Id,
+	}
+	userDataBytes, _ := json.Marshal(userData)
+	infrastructure.RedisClient.SetEx(ctx, redisKey, userDataBytes, *expireDuration)
+
+	return token, nil
 }

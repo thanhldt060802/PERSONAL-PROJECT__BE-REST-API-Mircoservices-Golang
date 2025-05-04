@@ -3,31 +3,31 @@ package utils
 import (
 	"fmt"
 	"thanhldt060802/config"
-	"thanhldt060802/internal/model"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func GenerateToken(user *model.User) (string, error) {
-	expireDuration, err := config.AppConfig.GetTokenExpireMinutes()
-	if err != nil {
-		return "", err
+func GenerateToken(userId int64, roleName string, cartId int64) (*string, error) {
+	expireDuration := config.AppConfig.GetTokenExpireMinutes()
+	if expireDuration == nil {
+		return nil, fmt.Errorf("convert expire failed")
 	}
 
 	claims := jwt.MapClaims{
-		"user_id":   user.Id,
-		"role_name": user.RoleName,
+		"user_id":   userId,
+		"role_name": roleName,
+		"cart_id":   cartId,
 		"exp":       time.Now().Add(*expireDuration).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString([]byte(config.AppConfig.JWTSecret))
 	if err != nil {
-		return "", fmt.Errorf("generate token failed")
+		return nil, fmt.Errorf("generate token failed")
 	}
 
-	return tokenStr, nil
+	return &tokenStr, nil
 }
 
 // func ValidateToken(tokenStr string) (jwt.MapClaims, error) {

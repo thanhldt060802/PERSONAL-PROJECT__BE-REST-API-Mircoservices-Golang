@@ -1,19 +1,48 @@
 package dto
 
-type SuccessResponse[T any] struct {
+// Get response
+// ################################################################################
+
+type PaginationBodyResponseList[T any] struct {
 	Body struct {
-		Status  int    `json:"status" example:"200"`
-		Message string `json:"message" example:"Get users successful"`
-		Data    T      `json:"data,omitempty"`
-		Total   int    `json:"total,omitempty" example:"1"`
+		Code    string `json:"code" example:"string"`
+		Message string `json:"message" example:"string"`
+		Data    []T    `json:"data"`
+		Total   int    `json:"total" example:"1"`
 	}
 }
 
+type BodyResponse[T any] struct {
+	Body struct {
+		Code    string `json:"code" example:"string"`
+		Message string `json:"message" example:"string"`
+		Data    T      `json:"data"`
+	}
+}
+
+// ################################################################################
+
+// Create, Update and Delete response
+// ################################################################################
+
+type SuccessResponse struct {
+	Body struct {
+		Code    string `json:"code" example:"string"`
+		Message string `json:"message" example:"string"`
+	}
+}
+
+// ################################################################################
+
+// Error response
+// ################################################################################
+
 type ErrorResponse struct {
-	Status  int      `json:"status" example:"400"`
-	Message string   `json:"message" example:"Get users failed"`
-	Error_  string   `json:"error,omitempty" example:"Bad Request"`
-	Details []string `json:"details,omitempty" example:"Load from database failed"`
+	Code    string   `json:"code" example:"string"`
+	Message string   `json:"message" example:"string"`
+	Error_  string   `json:"error,omitempty"`
+	Details []string `json:"details" example:"string"`
+	Status  int      `json:"status" example:"1"`
 }
 
 func (err *ErrorResponse) Error() string {
@@ -23,3 +52,5 @@ func (err *ErrorResponse) Error() string {
 func (err *ErrorResponse) GetStatus() int {
 	return err.Status
 }
+
+// ################################################################################

@@ -33,11 +33,20 @@ func NewProductHandler(api huma.API, productService service.ProductService, auth
 	// Get product by id
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodGet,
-		Path:        "/products/id/{id}",
-		Summary:     "/products/id/{id}",
+		Path:        "/products/{id}",
+		Summary:     "/products/{id}",
 		Description: "Get product by id.",
 		Tags:        []string{"Product"},
 	}, productHandler.GetProductById)
+
+	// Get products by category id
+	huma.Register(api, huma.Operation{
+		Method:      http.MethodGet,
+		Path:        "/products/category-id/{category_id}",
+		Summary:     "/products/category-id/{category_id}",
+		Description: "Get products by category id.",
+		Tags:        []string{"Product"},
+	}, productHandler.GetProductsByCategoryId)
 
 	// Create product
 	huma.Register(api, huma.Operation{
@@ -52,8 +61,8 @@ func NewProductHandler(api huma.API, productService service.ProductService, auth
 	// Update product by id
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodPut,
-		Path:        "/products/id/{id}",
-		Summary:     "/products/id/{id}",
+		Path:        "/products/{id}",
+		Summary:     "/products/{id}",
 		Description: "Update product by id.",
 		Tags:        []string{"Product"},
 		Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
@@ -62,105 +71,174 @@ func NewProductHandler(api huma.API, productService service.ProductService, auth
 	// Delete product by id
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodDelete,
-		Path:        "/products/id{id}",
-		Summary:     "/products/id{id}",
+		Path:        "/products/{id}",
+		Summary:     "/products/{id}",
 		Description: "Delete product by id.",
 		Tags:        []string{"Product"},
 		Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
 	}, productHandler.DeleteProductById)
 
+	// Sync products to Elasticsearch
+	huma.Register(api, huma.Operation{
+		Method:      http.MethodGet,
+		Path:        "/products/sync-to-elastic",
+		Summary:     "/products/sync-to-elastic",
+		Description: "Sync products to Elasticsearch.",
+		Tags:        []string{"Product"},
+		Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
+	}, productHandler.SyncProductsToElasticsearch)
+
+	// Search products
+	huma.Register(api, huma.Operation{
+		Method:      http.MethodGet,
+		Path:        "/products/search",
+		Summary:     "/products/search",
+		Description: "Search products.",
+		Tags:        []string{"Product"},
+	}, productHandler.SearchProducts)
+
 	return productHandler
 }
 
-func (productHandler *ProductHandler) GetProducts(ctx context.Context, queryParam *dto.GetProductsRequestQueryParam) (*dto.SuccessResponse[[]dto.ProductDTO], error) {
-	products, err := productHandler.productService.GetProducts(ctx, queryParam)
+func (productHandler *ProductHandler) GetProducts(ctx context.Context, reqDTO *dto.GetProductsWithQueryParamRequest) (*dto.PaginationBodyResponseList[dto.ProductView], error) {
+	products, err := productHandler.productService.GetProducts(ctx, reqDTO)
 	if err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusInternalServerError
+		res.Code = "ERR_INTERNAL_SERVER"
 		res.Message = "Get products failed"
-		res.Error_ = "Internal Server Error"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	data := dto.ToProductDTOs(products)
-	res := &dto.SuccessResponse[[]dto.ProductDTO]{}
-	res.Body.Status = http.StatusOK
+	data := dto.ToListProductView(products)
+	res := &dto.PaginationBodyResponseList[dto.ProductView]{}
+	res.Body.Code = "OK"
 	res.Body.Message = "Get products successful"
 	res.Body.Data = data
 	res.Body.Total = len(data)
 	return res, nil
 }
 
-func (productHandler *ProductHandler) GetProductById(ctx context.Context, reqDTO *dto.GetProductByIdRequest) (*dto.SuccessResponse[*dto.ProductDTO], error) {
-	id := reqDTO.Id
-
-	foundProduct, err := productHandler.productService.GetProductById(ctx, id)
+func (productHandler *ProductHandler) GetProductById(ctx context.Context, reqDTO *dto.GetProductByIdRequest) (*dto.BodyResponse[dto.ProductView], error) {
+	foundProduct, err := productHandler.productService.GetProductById(ctx, reqDTO)
 	if err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
+		res.Code = "ERR_BAD_REQUEST"
 		res.Message = "Get product by id failed"
-		res.Error_ = "Bad Request"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	data := dto.ToProductDTO(foundProduct)
-	res := &dto.SuccessResponse[*dto.ProductDTO]{}
-	res.Body.Status = http.StatusOK
+	data := dto.ToProductView(foundProduct)
+	res := &dto.BodyResponse[dto.ProductView]{}
+	res.Body.Code = "OK"
 	res.Body.Message = "Get product by id successful"
-	res.Body.Data = data
+	res.Body.Data = *data
 	return res, nil
 }
 
-func (productHandler *ProductHandler) CreateProduct(ctx context.Context, reqDTO *dto.CreateProductRequest) (*dto.SuccessResponse[any], error) {
-	if err := productHandler.productService.CreateProduct(ctx, reqDTO); err != nil {
+func (productHandler *ProductHandler) GetProductsByCategoryId(ctx context.Context, reqDTO *dto.GetProductsByCategoryIdWithQueryParamRequest) (*dto.PaginationBodyResponseList[dto.ProductView], error) {
+	products, err := productHandler.productService.GetProductsByCategoryId(ctx, reqDTO)
+	if err != nil {
 		res := &dto.ErrorResponse{}
-		res.Status = http.StatusBadRequest
-		res.Message = "Create product failed"
-		res.Error_ = "Bad Request"
+		res.Status = http.StatusInternalServerError
+		res.Code = "ERR_INTERNAL_SERVER"
+		res.Message = "Get products by category id failed"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	res := &dto.SuccessResponse[any]{}
-	res.Body.Status = http.StatusOK
+	data := dto.ToListProductView(products)
+	res := &dto.PaginationBodyResponseList[dto.ProductView]{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Get products category id successful"
+	res.Body.Data = data
+	res.Body.Total = len(data)
+	return res, nil
+}
+
+func (productHandler *ProductHandler) CreateProduct(ctx context.Context, reqDTO *dto.CreateProductRequest) (*dto.SuccessResponse, error) {
+	if err := productHandler.productService.CreateProduct(ctx, reqDTO); err != nil {
+		res := &dto.ErrorResponse{}
+		res.Status = http.StatusBadRequest
+		res.Code = "ERR_BAD_REQUEST"
+		res.Message = "Create product failed"
+		res.Details = []string{err.Error()}
+		return nil, res
+	}
+
+	res := &dto.SuccessResponse{}
+	res.Body.Code = "OK"
 	res.Body.Message = "Create product successful"
 	return res, nil
 }
 
-func (productHandler *ProductHandler) UpdateProductById(ctx context.Context, reqDTO *dto.UpdateProductRequest) (*dto.SuccessResponse[any], error) {
-	id := reqDTO.Id
-
-	if err := productHandler.productService.UpdateProductById(ctx, id, reqDTO); err != nil {
+func (productHandler *ProductHandler) UpdateProductById(ctx context.Context, reqDTO *dto.UpdateProductRequest) (*dto.SuccessResponse, error) {
+	if err := productHandler.productService.UpdateProductById(ctx, reqDTO); err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
+		res.Code = "ERR_BAD_REQUEST"
 		res.Message = "Update product failed"
-		res.Error_ = "Bad Request"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	res := &dto.SuccessResponse[any]{}
-	res.Body.Status = http.StatusOK
+	res := &dto.SuccessResponse{}
+	res.Body.Code = "OK"
 	res.Body.Message = "Update product successful"
 	return res, nil
 }
 
-func (productHandler *ProductHandler) DeleteProductById(ctx context.Context, reqDTO *dto.DeleteProductRequest) (*dto.SuccessResponse[any], error) {
-	id := reqDTO.Id
-
-	if err := productHandler.productService.DeleteProductById(ctx, id); err != nil {
+func (productHandler *ProductHandler) DeleteProductById(ctx context.Context, reqDTO *dto.DeleteProductRequest) (*dto.SuccessResponse, error) {
+	if err := productHandler.productService.DeleteProductById(ctx, reqDTO); err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
+		res.Code = "ERR_BAD_REQUEST"
 		res.Message = "Delete product failed"
-		res.Error_ = "Bad Request"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
-	res := &dto.SuccessResponse[any]{}
-	res.Body.Status = http.StatusOK
+	res := &dto.SuccessResponse{}
+	res.Body.Code = "OK"
 	res.Body.Message = "Delete product successful"
+	return res, nil
+}
+
+func (productHandler *ProductHandler) SyncProductsToElasticsearch(ctx context.Context, reqDTO *struct{}) (*dto.SuccessResponse, error) {
+	if err := productHandler.productService.SyncProductsToElasticsearch(ctx); err != nil {
+		res := &dto.ErrorResponse{}
+		res.Status = http.StatusInternalServerError
+		res.Code = "ERR_INTERNAL_SERVER"
+		res.Message = "Sync products to Elasticsearch failed"
+		res.Details = []string{err.Error()}
+		return nil, res
+	}
+
+	res := &dto.SuccessResponse{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Sync products to Elasticsearch successful"
+	return res, nil
+}
+
+func (productHandler *ProductHandler) SearchProducts(ctx context.Context, reqDTO *dto.SearchProductsRequest) (*dto.PaginationBodyResponseList[dto.ProductView], error) {
+	products, err := productHandler.productService.SearchProducts(ctx, reqDTO)
+	if err != nil {
+		res := &dto.ErrorResponse{}
+		res.Status = http.StatusInternalServerError
+		res.Code = "ERR_INTERNAL_SERVER"
+		res.Message = "Search products failed"
+		res.Details = []string{err.Error()}
+		return nil, res
+	}
+
+	data := dto.ToListProductView(products)
+	res := &dto.PaginationBodyResponseList[dto.ProductView]{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Search products successful"
+	res.Body.Data = data
+	res.Body.Total = len(data)
 	return res, nil
 }
