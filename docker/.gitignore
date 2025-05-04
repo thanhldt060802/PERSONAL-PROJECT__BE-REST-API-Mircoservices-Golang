@@ -1,8 +1,8 @@
 # Data directory of PostgreSQL
 postgres_data/
 
-# Data directory of Elasticsearch 
-es_data/
+# Data directory of Elasticsearch
+elasticsearch_data/
 
 # Config files
 .env
