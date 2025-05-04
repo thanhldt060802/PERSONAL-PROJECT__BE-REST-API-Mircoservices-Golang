@@ -162,7 +162,7 @@ func (productService *productService) SyncProductsToElasticsearch(ctx context.Co
 			"updated_at":          product.UpdatedAt,
 		}
 
-		_, err := infrastructure.ESClient.Index(
+		_, err := infrastructure.ElasticsearchClient.Index(
 			"products", // Tên index
 			esutil.NewJSONReader(doc),
 		)
@@ -175,11 +175,11 @@ func (productService *productService) SyncProductsToElasticsearch(ctx context.Co
 }
 
 func (productService *productService) SearchProducts(ctx context.Context, reqDTO *dto.SearchProductsRequest) ([]model.Product, error) {
-	res, err := infrastructure.ESClient.Search(
-		infrastructure.ESClient.Search.WithContext(ctx),
-		infrastructure.ESClient.Search.WithIndex("products"),
-		infrastructure.ESClient.Search.WithQuery(reqDTO.Query),
-		infrastructure.ESClient.Search.WithPretty(),
+	res, err := infrastructure.ElasticsearchClient.Search(
+		infrastructure.ElasticsearchClient.Search.WithContext(ctx),
+		infrastructure.ElasticsearchClient.Search.WithIndex("products"),
+		infrastructure.ElasticsearchClient.Search.WithQuery(reqDTO.Query),
+		infrastructure.ElasticsearchClient.Search.WithPretty(),
 	)
 	if err != nil {
 		return nil, err

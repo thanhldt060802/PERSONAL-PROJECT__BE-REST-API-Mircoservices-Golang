@@ -8,7 +8,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v8"
 )
 
-var ESClient *elasticsearch.Client
+var ElasticsearchClient *elasticsearch.Client
 
 func InitElasticsearchClient() {
 	esClient, err := elasticsearch.NewClient(elasticsearch.Config{
@@ -19,16 +19,16 @@ func InitElasticsearchClient() {
 		Password: config.AppConfig.ESPassword,
 	})
 	if err != nil {
-		log.Fatal("Connect to ES failed: ", err)
+		log.Fatal("Connect to Elasticsearch failed: ", err)
 	}
 
-	ESClient = esClient
+	ElasticsearchClient = esClient
 
-	res, err := ESClient.Info()
+	res, err := ElasticsearchClient.Info()
 	if err != nil {
-		log.Fatal("Ping to ES failed: ", err)
+		log.Fatal("Ping to Elasticsearch failed: ", err)
 	}
 	defer res.Body.Close()
-	log.Println("Connected to ES successful")
+	log.Println("Connected to Elasticsearch successful")
 
 }
