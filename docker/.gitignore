@@ -1,6 +1,9 @@
 # Data directory of PostgreSQL
 postgres_data/
 
+# Data directory of Redis
+redis_data/
+
 # Data directory of Elasticsearch
 elasticsearch_data/
 
