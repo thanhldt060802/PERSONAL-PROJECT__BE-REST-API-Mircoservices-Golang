@@ -27,7 +27,8 @@ type UserService interface {
 	UpdateUserById(ctx context.Context, reqDTO *dto.UpdateUserRequest) error
 	DeleteUserById(ctx context.Context, reqDTO *dto.DeleteUserRequest) error
 
-	LoginUser(ctx context.Context, reqDTO *dto.LoginRequest) (*string, error)
+	LoginUser(ctx context.Context, reqDTO *dto.LoginUserRequest) (*string, error)
+	LogoutUser(ctx context.Context, reqDTO *dto.LogoutUserRequest) error
 }
 
 func NewUserService(userRepository repository.UserRepository, cartRepository repository.CartRepository) UserService {
@@ -168,7 +169,7 @@ func (userService *userService) DeleteUserById(ctx context.Context, reqDTO *dto.
 	return nil
 }
 
-func (userService *userService) LoginUser(ctx context.Context, reqDTO *dto.LoginRequest) (*string, error) {
+func (userService *userService) LoginUser(ctx context.Context, reqDTO *dto.LoginUserRequest) (*string, error) {
 	foundUser, err := userService.userRepository.GetByUsername(ctx, reqDTO.Body.Username)
 	if err != nil {
 		return nil, err
@@ -198,7 +199,28 @@ func (userService *userService) LoginUser(ctx context.Context, reqDTO *dto.Login
 		"cart_id":   foundCart.Id,
 	}
 	userDataBytes, _ := json.Marshal(userData)
-	infrastructure.RedisClient.SetEx(ctx, redisKey, userDataBytes, *expireDuration)
+
+	status, err := infrastructure.RedisClient.SetEx(ctx, redisKey, userDataBytes, *expireDuration).Result()
+	if err != nil {
+		return nil, fmt.Errorf("save token to redis failed: %w", err)
+	}
+	if status != "OK" {
+		return nil, fmt.Errorf("unexpected response from Redis: %s", status)
+	}
 
 	return token, nil
+}
+
+func (userService *userService) LogoutUser(ctx context.Context, reqDTO *dto.LogoutUserRequest) error {
+	redisKey := fmt.Sprintf("token:%s", reqDTO.Body.Token)
+
+	deleted, err := infrastructure.RedisClient.Del(ctx, redisKey).Result()
+	if err != nil {
+		return fmt.Errorf("delete token from redis failed")
+	}
+	if deleted == 0 {
+		return fmt.Errorf("token not found or expired")
+	}
+
+	return nil
 }

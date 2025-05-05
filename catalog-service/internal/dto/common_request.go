@@ -85,8 +85,11 @@ type DeleteProductRequest struct {
 	Id int64 `path:"id" required:"true" doc:"Id of product will be deleted."`
 }
 
-type SearchProductsRequest struct {
-	Query string `query:"query" required:"true" doc:"Search query for products."`
+type SearchProductsWithQueryParamRequest struct {
+	Query  string `query:"query" doc:"Search query for products."`
+	Offset int    `query:"offset" default:"0" minimum:"0" example:"0" doc:"Skip item by offset."`
+	Limit  int    `query:"limit" default:"5" minimum:"1" maximum:"10" example:"10" doc:"Limit item from offset."`
+	SortBy string `query:"sort_by" default:"id:asc" example:"created_at:desc,id" doc:"Sort by one or more fields separated by commas. For example: sort_by=created_at:desc,id will sort by created_at in descending order, then by id in ascending order."`
 }
 
 // ################################################################################

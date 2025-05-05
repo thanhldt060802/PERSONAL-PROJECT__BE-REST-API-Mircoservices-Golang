@@ -10,20 +10,20 @@ import (
 type Config struct {
 	AppPort string
 
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
+	PostgresHost     string
+	PostgresPort     string
+	PostgresUser     string
+	PostgresPassword string
+	PostgresDB       string
 
-	DBRedisHost     string
-	DBRedisPort     string
-	DBRedisPassword string
+	RedisHost     string
+	RedisPort     string
+	RedisPassword string
 
-	ESHost     string
-	ESPort     string
-	ESUsername string
-	ESPassword string
+	ElasticsearchHost     string
+	ElasticsearchPort     string
+	ElasticsearchUsername string
+	ElasticsearchPassword string
 }
 
 var AppConfig *Config
@@ -37,20 +37,20 @@ func InitConfig() {
 	AppConfig = &Config{
 		AppPort: GetEnv("APP_PORT", "8080"),
 
-		DBHost:     GetEnv("DB_HOST", "localhost"),
-		DBPort:     GetEnv("DB_PORT", "5432"),
-		DBUser:     GetEnv("DB_USER", "postgres"),
-		DBPassword: GetEnv("DB_PASSWORD", ""),
-		DBName:     GetEnv("DB_NAME", "my_db"),
+		PostgresHost:     GetEnv("POSTGRES_HOST", "localhost"),
+		PostgresPort:     GetEnv("POSTGRES_PORT", "5432"),
+		PostgresUser:     GetEnv("POSTGRES_USER", "postgres"),
+		PostgresPassword: GetEnv("POSTGRES_PASSWORD", ""),
+		PostgresDB:       GetEnv("POSTGRES_DB", "my_db"),
 
-		DBRedisHost:     GetEnv("DB_REDIS_HOST", "localhost"),
-		DBRedisPort:     GetEnv("DB_REDIS_PORT", "6379"),
-		DBRedisPassword: GetEnv("DB_REDIS_PASSWORD", ""),
+		RedisHost:     GetEnv("REDIS_HOST", "localhost"),
+		RedisPort:     GetEnv("REDIS_PORT", "6379"),
+		RedisPassword: GetEnv("REDIS_PASSWORD", ""),
 
-		ESHost:     GetEnv("ES_HOST", "localhost"),
-		ESPort:     GetEnv("ES_PORT", "9200"),
-		ESUsername: GetEnv("ES_USERNAME", "elastic"),
-		ESPassword: GetEnv("ES_PASSWORD", ""),
+		ElasticsearchHost:     GetEnv("ELASTICSEARCH_HOST", "localhost"),
+		ElasticsearchPort:     GetEnv("ELASTICSEARCH_PORT", "9200"),
+		ElasticsearchUsername: GetEnv("ELASTICSEARCH_USERNAME", "elastic"),
+		ElasticsearchPassword: GetEnv("ELASTICSEARCH_PASSWORD", ""),
 	}
 
 	log.Println("Loading .env file successful")

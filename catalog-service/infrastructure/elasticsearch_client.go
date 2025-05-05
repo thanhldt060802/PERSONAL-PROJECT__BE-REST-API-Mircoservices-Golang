@@ -13,10 +13,10 @@ var ElasticsearchClient *elasticsearch.Client
 func InitElasticsearchClient() {
 	esClient, err := elasticsearch.NewClient(elasticsearch.Config{
 		Addresses: []string{
-			fmt.Sprintf("http://%s:%s", config.AppConfig.ESHost, config.AppConfig.ESPort),
+			fmt.Sprintf("http://%s:%s", config.AppConfig.ElasticsearchHost, config.AppConfig.ElasticsearchPort),
 		},
-		Username: config.AppConfig.ESUsername,
-		Password: config.AppConfig.ESPassword,
+		Username: config.AppConfig.ElasticsearchUsername,
+		Password: config.AppConfig.ElasticsearchPassword,
 	})
 	if err != nil {
 		log.Fatal("Connect to Elasticsearch failed: ", err)
@@ -30,5 +30,4 @@ func InitElasticsearchClient() {
 	}
 	defer res.Body.Close()
 	log.Println("Connected to Elasticsearch successful")
-
 }

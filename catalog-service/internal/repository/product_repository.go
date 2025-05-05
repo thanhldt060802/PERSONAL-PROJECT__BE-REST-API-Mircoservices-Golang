@@ -66,12 +66,12 @@ func (productRepository *productRepository) GetByCategoryId(ctx context.Context,
 }
 
 func (productRepository *productRepository) Create(ctx context.Context, newProduct *model.Product) error {
-	_, err := infrastructure.DB.NewInsert().Model(newProduct).Exec(ctx)
+	_, err := infrastructure.DB.NewInsert().Model(newProduct).Returning("*").Exec(ctx)
 	return err
 }
 
 func (productRepository *productRepository) UpdateById(ctx context.Context, id int64, updatedProduct *model.Product) error {
-	_, err := infrastructure.DB.NewUpdate().Model(updatedProduct).Where("id = ?", id).Exec(ctx)
+	_, err := infrastructure.DB.NewUpdate().Model(updatedProduct).Where("id = ?", id).Returning("*").Exec(ctx)
 	return err
 }
 

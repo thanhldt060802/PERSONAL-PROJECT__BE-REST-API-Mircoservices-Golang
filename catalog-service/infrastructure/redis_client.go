@@ -15,8 +15,8 @@ func InitRedisClient() {
 	ctx := context.Background()
 
 	RedisClient = redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", config.AppConfig.DBRedisHost, config.AppConfig.DBRedisPort),
-		Password: config.AppConfig.DBRedisPassword,
+		Addr:     fmt.Sprintf("%s:%s", config.AppConfig.RedisHost, config.AppConfig.RedisPort),
+		Password: config.AppConfig.RedisPassword,
 		DB:       0,
 	})
 

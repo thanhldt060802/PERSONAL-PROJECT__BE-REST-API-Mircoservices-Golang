@@ -1,6 +1,9 @@
 package utils
 
-import "strings"
+import (
+	"strings"
+	"thanhldt060802/internal/model"
+)
 
 type SortField struct {
 	Field     string
@@ -36,6 +39,40 @@ func ParseSortBy(sortBy string) []SortField {
 		sortFields = append(sortFields, SortField{
 			Field:     field,
 			Direction: direction,
+		})
+	}
+
+	return sortFields
+}
+
+func ParseSortByUsingElasticsearchForProduct(sortBy string) []map[string]interface{} {
+	var sortFields []map[string]interface{}
+
+	items := strings.Split(sortBy, ",")
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+
+		var field string
+		var direction string
+
+		if strings.Contains(item, ":") {
+			parts := strings.SplitN(item, ":", 2)
+			field = parts[0]
+			if strings.ToLower(parts[1]) == "desc" {
+				direction = "desc"
+			} else {
+				direction = "asc"
+			}
+		} else {
+			field = item
+			direction = "asc"
+		}
+
+		sortFields = append(sortFields, map[string]interface{}{
+			model.ProductValidSortField[field]: direction,
 		})
 	}
 

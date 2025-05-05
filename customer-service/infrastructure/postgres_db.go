@@ -16,7 +16,7 @@ var DB *bun.DB
 func InitPostgesConnection() {
 	dsn := fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		config.AppConfig.DBUser, config.AppConfig.DBPassword, config.AppConfig.DBHost, config.AppConfig.DBPort, config.AppConfig.DBName,
+		config.AppConfig.PostgresUser, config.AppConfig.PostgresPassword, config.AppConfig.PostgresHost, config.AppConfig.PostgresPort, config.AppConfig.PostgresDB,
 	)
 
 	pgdb, err := sql.Open("postgres", dsn)

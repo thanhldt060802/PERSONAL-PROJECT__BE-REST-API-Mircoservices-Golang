@@ -9,6 +9,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
+      - TZ=Asia/Ho_Chi_Minh
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
@@ -26,6 +27,8 @@ services:
     ports:
       - "${REDIS_PORT}:6379"
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - ./redis_data:/data
     networks:
       - my_docker_network
   
@@ -36,17 +39,17 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=true
-      - ELASTIC_PASSWORD=${ES_PASSWORD}
+      - ELASTIC_PASSWORD=${ELASTICSEARCH_PASSWORD}
       - xpack.security.http.ssl.enabled=false
-      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
     ports:
-      - "${ES_PORT}:9200"
-    networks:
-      - my_docker_network
+      - "${ELASTICSEARCH_PORT}:9200"
     volumes:
       - ./elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - my_docker_network
     healthcheck:
-      test: ["CMD-SHELL", "curl -u elastic:${ES_PASSWORD} -s http://localhost:9200 >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "curl -u elastic:${ELASTICSEARCH_PASSWORD} -s http://localhost:9200 >/dev/null || exit 1"]
       interval: 10s
       retries: 5
       start_period: 30s

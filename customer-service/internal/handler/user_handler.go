@@ -100,6 +100,16 @@ func NewUserHandler(api huma.API, userService service.UserService, authMiddlewar
 		Tags:        []string{"Auth"},
 	}, userHandler.LoginUser)
 
+	// Logout user
+	huma.Register(api, huma.Operation{
+		Method:      http.MethodPost,
+		Path:        "/logout",
+		Summary:     "/logout",
+		Description: "Logout user",
+		Tags:        []string{"Auth"},
+		// Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
+	}, userHandler.LogoutUser)
+
 	// Register user
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodPost,
@@ -257,12 +267,12 @@ func (userHandler *UserHandler) DeleteUserById(ctx context.Context, reqDTO *dto.
 	return res, nil
 }
 
-func (userHandler *UserHandler) LoginUser(ctx context.Context, reqDTO *dto.LoginRequest) (*dto.BodyResponse[string], error) {
+func (userHandler *UserHandler) LoginUser(ctx context.Context, reqDTO *dto.LoginUserRequest) (*dto.BodyResponse[string], error) {
 	token, err := userHandler.userService.LoginUser(ctx, reqDTO)
 	if err != nil {
 		res := &dto.ErrorResponse{}
-		res.Status = http.StatusInternalServerError
-		res.Code = "ERR_INTERNAL_SERVER"
+		res.Status = http.StatusBadRequest
+		res.Code = "ERR_BAD_REQUEST"
 		res.Message = "Login user failed"
 		res.Details = []string{err.Error()}
 		return nil, res
@@ -272,6 +282,22 @@ func (userHandler *UserHandler) LoginUser(ctx context.Context, reqDTO *dto.Login
 	res.Body.Code = "OK"
 	res.Body.Message = "Login user successful"
 	res.Body.Data = *token
+	return res, nil
+}
+
+func (userHandler *UserHandler) LogoutUser(ctx context.Context, reqDTO *dto.LogoutUserRequest) (*dto.SuccessResponse, error) {
+	if err := userHandler.userService.LogoutUser(ctx, reqDTO); err != nil {
+		res := &dto.ErrorResponse{}
+		res.Status = http.StatusBadRequest
+		res.Code = "ERR_BAD_REQUEST"
+		res.Message = "Logout user failed"
+		res.Details = []string{err.Error()}
+		return nil, res
+	}
+
+	res := &dto.SuccessResponse{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Logout user successful"
 	return res, nil
 }
 

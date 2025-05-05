@@ -49,10 +49,16 @@ type DeleteUserRequest struct {
 	Id int64 `path:"id" required:"true" doc:"Id of user will be deleted."`
 }
 
-type LoginRequest struct {
+type LoginUserRequest struct {
 	Body struct {
 		Username string `json:"username" required:"true" minLength:"1" example:"user1" doc:"Account username."`
 		Password string `json:"password" required:"true" minLength:"1" example:"123" doc:"Account password."`
+	}
+}
+
+type LogoutUserRequest struct {
+	Body struct {
+		Token string `json:"token" required:"true" minLength:"1" example:"XXX" doc:"Token of account will be logged out."`
 	}
 }
 

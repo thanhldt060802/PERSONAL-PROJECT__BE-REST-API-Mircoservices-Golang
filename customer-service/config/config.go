@@ -12,19 +12,18 @@ import (
 type Config struct {
 	AppPort string
 
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
+	PostgresHost     string
+	PostgresPort     string
+	PostgresUser     string
+	PostgresPassword string
+	PostgresDB       string
 
-	JWTSecret string
-
-	DBRedisHost     string
-	DBRedisPort     string
-	DBRedisPassword string
-
+	JWTSecret          string
 	TokenExpireMinutes string
+
+	RedisHost     string
+	RedisPort     string
+	RedisPassword string
 }
 
 var AppConfig *Config
@@ -38,19 +37,18 @@ func InitConfig() {
 	AppConfig = &Config{
 		AppPort: GetEnv("APP_PORT", "8080"),
 
-		DBHost:     GetEnv("DB_HOST", "localhost"),
-		DBPort:     GetEnv("DB_PORT", "5432"),
-		DBUser:     GetEnv("DB_USER", "postgres"),
-		DBPassword: GetEnv("DB_PASSWORD", ""),
-		DBName:     GetEnv("DB_NAME", "my_db"),
+		PostgresHost:     GetEnv("POSTGRES_HOST", "localhost"),
+		PostgresPort:     GetEnv("POSTGRES_PORT", "5432"),
+		PostgresUser:     GetEnv("POSTGRES_USER", "postgres"),
+		PostgresPassword: GetEnv("POSTGRES_PASSWORD", ""),
+		PostgresDB:       GetEnv("POSTGRES_DB", "my_db"),
 
-		JWTSecret: GetEnv("JWT_SECRET", "123"),
-
-		DBRedisHost:     GetEnv("DB_REDIS_HOST", "localhost"),
-		DBRedisPort:     GetEnv("DB_REDIS_PORT", "6379"),
-		DBRedisPassword: GetEnv("DB_REDIS_PASSWORD", ""),
-
+		JWTSecret:          GetEnv("JWT_SECRET", "123"),
 		TokenExpireMinutes: GetEnv("TOKEN_EXPIRE_MINUTES", "30"),
+
+		RedisHost:     GetEnv("REDIS_HOST", "localhost"),
+		RedisPort:     GetEnv("REDIS_PORT", "6379"),
+		RedisPassword: GetEnv("REDIS_PASSWORD", ""),
 	}
 
 	log.Println("Loading .env file successful")
