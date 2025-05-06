@@ -19,7 +19,7 @@ import (
 var humaDocsEmbedded = `<!doctype html>
 <html>
   <head>
-    <title>API Reference</title>
+    <title>HelloWorld APIs</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
   </head>
@@ -80,9 +80,12 @@ func main() {
 	categoryRepository := repository.NewCategoryRepository()
 	productRepository := repository.NewProductRepository()
 
+	// Initialize Elasticsearch repository
+	productElasticsearchRepository := repository.NewProductElasticsearchRepository()
+
 	// Initialize services
 	categoryServive := service.NewCategoryService(categoryRepository)
-	productService := service.NewProductService(productRepository, categoryRepository)
+	productService := service.NewProductService(productRepository, productElasticsearchRepository, categoryRepository)
 
 	// Initialize handlers
 	handler.NewProductHandler(api, productService, authMiddleware)

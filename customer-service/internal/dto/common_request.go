@@ -216,6 +216,19 @@ type DeleteInvoiceUsingAccountRequest struct {
 	Id int64 `path:"id" required:"true" doc:"Id of invoice will be deleted."`
 }
 
+type GetInvoicesWithElasticsearchRequest struct {
+	Offset       int    `query:"offset" default:"0" minimum:"0" example:"0" doc:"Skip item by offset."`
+	Limit        int    `query:"limit" default:"5" minimum:"1" maximum:"10" example:"10" doc:"Limit item from offset."`
+	SortBy       string `query:"sort_by" default:"id:desc" example:"created_at:desc,id" doc:"Sort by one or more fields separated by commas. Format: \"field:asc/desc\" (default is asc if not declare after commas)"`
+	CreatedAtGTE string `query:"created_at_gte" example:"2024-01-15T00:00:00" doc:"Filter by created_at greater than or equal, with format is YYYY-MM-ddTHH:mm:ss."`
+	CreatedAtLTE string `query:"created_at_lte" example:"2024-02-05T23:59:59" doc:"Filter by created_at less than or equal, with format is YYYY-MM-ddTHH:mm:ss."`
+}
+
+type AggregateInvoicesWithElasticsearchRequest struct {
+	CreatedAtGTE string `query:"created_at_gte" example:"2024-01-15T00:00:00" doc:"Filter by created_at greater than or equal, with format is YYYY-MM-ddTHH:mm:ss."`
+	CreatedAtLTE string `query:"created_at_lte" example:"2024-02-05T23:59:59" doc:"Filter by created_at less than or equal, with format is YYYY-MM-ddTHH:mm:ss."`
+}
+
 // ################################################################################
 
 // Only invoice detail request

@@ -11,7 +11,8 @@ import (
 )
 
 type invoiceService struct {
-	invoiceRepository repository.InvoiceRepository
+	invoiceRepository              repository.InvoiceRepository
+	invoiceElasticsearchRepository repository.InvoiceElasticsearchRepository
 }
 
 type InvoiceService interface {
@@ -20,11 +21,18 @@ type InvoiceService interface {
 	GetInvoicesByUserId(ctx context.Context, reqDTO *dto.GetInvoicesByUserIdWithQueryParamRequest) ([]model.Invoice, error)
 	UpdateInvoiceById(ctx context.Context, reqDTO *dto.UpdateInvoiceRequest) error
 	DeleteInvoiceById(ctx context.Context, reqDTO *dto.DeleteInvoiceRequest) error
+
+	SyncAllInvoicesToElasticsearch(ctx context.Context) error
+
+	GetInvoicesWithElasticsearch(ctx context.Context, reqDTO *dto.GetInvoicesWithElasticsearchRequest) ([]model.Invoice, error)
+	SumInvoicesWithElasticsearch(ctx context.Context, reqDTO *dto.AggregateInvoicesWithElasticsearchRequest) (*float64, error)
+	SumAvgInvoicesWithElasticsearch(ctx context.Context, reqDTO *dto.AggregateInvoicesWithElasticsearchRequest) (*model.InvoiceReport, error)
 }
 
-func NewInvoiceService(invoiceRepository repository.InvoiceRepository) InvoiceService {
+func NewInvoiceService(invoiceRepository repository.InvoiceRepository, invoiceElasticsearchRepository repository.InvoiceElasticsearchRepository) InvoiceService {
 	return &invoiceService{
-		invoiceRepository: invoiceRepository,
+		invoiceRepository:              invoiceRepository,
+		invoiceElasticsearchRepository: invoiceElasticsearchRepository,
 	}
 }
 
@@ -87,4 +95,48 @@ func (invoiceService *invoiceService) DeleteInvoiceById(ctx context.Context, req
 	}
 
 	return nil
+}
+
+func (invoiceService *invoiceService) SyncAllInvoicesToElasticsearch(ctx context.Context) error {
+	invoices, err := invoiceService.invoiceRepository.GetAll(ctx)
+
+	if err != nil {
+		return err
+	}
+
+	if err := invoiceService.invoiceElasticsearchRepository.SyncAll(ctx, invoices); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (invoiceService *invoiceService) GetInvoicesWithElasticsearch(ctx context.Context, reqDTO *dto.GetInvoicesWithElasticsearchRequest) ([]model.Invoice, error) {
+	sortFields := utils.ParseSortBy(reqDTO.SortBy)
+
+	invoices, err := invoiceService.invoiceElasticsearchRepository.Get(ctx, reqDTO.Offset, reqDTO.Limit, sortFields,
+		reqDTO.CreatedAtGTE, reqDTO.CreatedAtLTE)
+	if err != nil {
+		return nil, err
+	}
+
+	return invoices, nil
+}
+
+func (invoiceService *invoiceService) SumInvoicesWithElasticsearch(ctx context.Context, reqDTO *dto.AggregateInvoicesWithElasticsearchRequest) (*float64, error) {
+	sum, err := invoiceService.invoiceElasticsearchRepository.Sum(ctx, reqDTO.CreatedAtGTE, reqDTO.CreatedAtLTE)
+	if err != nil {
+		return nil, err
+	}
+
+	return sum, nil
+}
+
+func (invoiceService *invoiceService) SumAvgInvoicesWithElasticsearch(ctx context.Context, reqDTO *dto.AggregateInvoicesWithElasticsearchRequest) (*model.InvoiceReport, error) {
+	invoiceReport, err := invoiceService.invoiceElasticsearchRepository.SumAvg(ctx, reqDTO.CreatedAtGTE, reqDTO.CreatedAtLTE)
+	if err != nil {
+		return nil, err
+	}
+
+	return invoiceReport, nil
 }

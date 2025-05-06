@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"thanhldt060802/internal/dto"
 	"thanhldt060802/internal/middleware"
+	"thanhldt060802/internal/model"
 	"thanhldt060802/internal/service"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -90,6 +91,43 @@ func NewInvoiceHandler(api huma.API, invoiceService service.InvoiceService, auth
 		Tags:        []string{"Invoice"},
 		Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
 	}, invoiceHandler.DeleteInvoiceByIdUsingAccount)
+
+	// Sync all invoices to Elasticsearch
+	huma.Register(api, huma.Operation{
+		Method:      http.MethodGet,
+		Path:        "/invoices/sync-to-elasticsearch",
+		Summary:     "/invoices/sync-to-elasticsearch",
+		Description: "Sync all invoices to Elasticsearch.",
+		Tags:        []string{"Invoice"},
+		// Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
+	}, invoiceHandler.SyncAllInvoicesToElasticsearch)
+
+	// Get invoices with Elasticsearch
+	huma.Register(api, huma.Operation{
+		Method:      http.MethodGet,
+		Path:        "/invoices/elasticsearch",
+		Summary:     "/invoices/elasticsearch",
+		Description: "Get invoices with Elasticsearch.",
+		Tags:        []string{"Invoice"},
+	}, invoiceHandler.GetInvoicesWithElasticsearch)
+
+	// Sum invoices with Elasticsearch
+	huma.Register(api, huma.Operation{
+		Method:      http.MethodGet,
+		Path:        "/invoices/elasticsearch/sum",
+		Summary:     "/invoices/elasticsearch/sum",
+		Description: "Sum invoices with Elasticsearch.",
+		Tags:        []string{"Invoice"},
+	}, invoiceHandler.SumInvoicesWithElasticsearch)
+
+	// Sum avg invoices with Elasticsearch
+	huma.Register(api, huma.Operation{
+		Method:      http.MethodGet,
+		Path:        "/invoices/elasticsearch/sumavg",
+		Summary:     "/invoices/elasticsearch/sumavg",
+		Description: "Sum avg invoices with Elasticsearch.",
+		Tags:        []string{"Invoice"},
+	}, invoiceHandler.SumAvgInvoicesWithElasticsearch)
 
 	return invoiceHandler
 }
@@ -278,5 +316,77 @@ func (invoiceHandler *InvoiceHandler) DeleteInvoiceByIdUsingAccount(ctx context.
 	res := &dto.SuccessResponse{}
 	res.Body.Code = "OK"
 	res.Body.Message = "Delete invoice using account successful"
+	return res, nil
+}
+
+func (invoiceHandler *InvoiceHandler) SyncAllInvoicesToElasticsearch(ctx context.Context, reqDTO *struct{}) (*dto.SuccessResponse, error) {
+	if err := invoiceHandler.invoiceService.SyncAllInvoicesToElasticsearch(ctx); err != nil {
+		res := &dto.ErrorResponse{}
+		res.Status = http.StatusInternalServerError
+		res.Code = "ERR_INTERNAL_SERVER"
+		res.Message = "Sync all invoices to Elasticsearch failed"
+		res.Details = []string{err.Error()}
+		return nil, res
+	}
+
+	res := &dto.SuccessResponse{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Sync all invoices to Elasticsearch successful"
+	return res, nil
+}
+
+func (invoiceHandler *InvoiceHandler) GetInvoicesWithElasticsearch(ctx context.Context, reqDTO *dto.GetInvoicesWithElasticsearchRequest) (*dto.PaginationBodyResponseList[dto.InvoiceView], error) {
+	invoices, err := invoiceHandler.invoiceService.GetInvoicesWithElasticsearch(ctx, reqDTO)
+	if err != nil {
+		res := &dto.ErrorResponse{}
+		res.Status = http.StatusInternalServerError
+		res.Code = "ERR_INTERNAL_SERVER"
+		res.Message = "Get invoices with Elasticsearch failed"
+		res.Details = []string{err.Error()}
+		return nil, res
+	}
+
+	data := dto.ToListInvoiceView(invoices)
+	res := &dto.PaginationBodyResponseList[dto.InvoiceView]{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Get invoices with Elasticsearch successful"
+	res.Body.Data = data
+	res.Body.Total = len(data)
+	return res, nil
+}
+
+func (invoiceHandler *InvoiceHandler) SumInvoicesWithElasticsearch(ctx context.Context, reqDTO *dto.AggregateInvoicesWithElasticsearchRequest) (*dto.BodyResponse[float64], error) {
+	sum, err := invoiceHandler.invoiceService.SumInvoicesWithElasticsearch(ctx, reqDTO)
+	if err != nil {
+		res := &dto.ErrorResponse{}
+		res.Status = http.StatusInternalServerError
+		res.Code = "ERR_INTERNAL_SERVER"
+		res.Message = "Sum invoices with Elasticsearch failed"
+		res.Details = []string{err.Error()}
+		return nil, res
+	}
+
+	res := &dto.BodyResponse[float64]{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Sum invoices with Elasticsearch successful"
+	res.Body.Data = *sum
+	return res, nil
+}
+
+func (invoiceHandler *InvoiceHandler) SumAvgInvoicesWithElasticsearch(ctx context.Context, reqDTO *dto.AggregateInvoicesWithElasticsearchRequest) (*dto.BodyResponse[model.InvoiceReport], error) {
+	invoiceReport, err := invoiceHandler.invoiceService.SumAvgInvoicesWithElasticsearch(ctx, reqDTO)
+	if err != nil {
+		res := &dto.ErrorResponse{}
+		res.Status = http.StatusInternalServerError
+		res.Code = "ERR_INTERNAL_SERVER"
+		res.Message = "Sum avg invoices with Elasticsearch failed"
+		res.Details = []string{err.Error()}
+		return nil, res
+	}
+
+	res := &dto.BodyResponse[model.InvoiceReport]{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Sum avg invoices with Elasticsearch successful"
+	res.Body.Data = *invoiceReport
 	return res, nil
 }

@@ -33,8 +33,8 @@ func NewProductHandler(api huma.API, productService service.ProductService, auth
 	// Get product by id
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodGet,
-		Path:        "/products/{id}",
-		Summary:     "/products/{id}",
+		Path:        "/products/id/{id}",
+		Summary:     "/products/id/{id}",
 		Description: "Get product by id.",
 		Tags:        []string{"Product"},
 	}, productHandler.GetProductById)
@@ -55,52 +55,52 @@ func NewProductHandler(api huma.API, productService service.ProductService, auth
 		Summary:     "/products",
 		Description: "Create product.",
 		Tags:        []string{"Product"},
-		Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
+		// Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
 	}, productHandler.CreateProduct)
 
 	// Update product by id
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodPut,
-		Path:        "/products/{id}",
-		Summary:     "/products/{id}",
+		Path:        "/products/id/{id}",
+		Summary:     "/products/id/{id}",
 		Description: "Update product by id.",
 		Tags:        []string{"Product"},
-		Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
+		// Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
 	}, productHandler.UpdateProductById)
 
 	// Delete product by id
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodDelete,
-		Path:        "/products/{id}",
-		Summary:     "/products/{id}",
+		Path:        "/products/id/{id}",
+		Summary:     "/products/id/{id}",
 		Description: "Delete product by id.",
 		Tags:        []string{"Product"},
-		Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
+		// Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
 	}, productHandler.DeleteProductById)
 
 	// Sync all products to Elasticsearch
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodGet,
-		Path:        "/products/sync-all-product-elasticsearch",
-		Summary:     "/products/sync-all-product-elasticsearch",
+		Path:        "/products/sync-to-elasticsearch",
+		Summary:     "/products/sync-to-elasticsearch",
 		Description: "Sync all products to Elasticsearch.",
 		Tags:        []string{"Product"},
 		// Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
 	}, productHandler.SyncAllProductsToElasticsearch)
 
-	// Search products
+	// Get products with Elasticsearch
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodGet,
-		Path:        "/products/search",
-		Summary:     "/products/search",
-		Description: "Search products.",
+		Path:        "/products/elasticsearch",
+		Summary:     "/products/elasticsearch",
+		Description: "Get products with Elasticsearch.",
 		Tags:        []string{"Product"},
-	}, productHandler.SearchProducts)
+	}, productHandler.GetProducsWithElasticsearch)
 
 	return productHandler
 }
 
-func (productHandler *ProductHandler) GetProducts(ctx context.Context, reqDTO *dto.GetProductsWithQueryParamRequest) (*dto.PaginationBodyResponseList[dto.ProductView], error) {
+func (productHandler *ProductHandler) GetProducts(ctx context.Context, reqDTO *dto.GetProductsRequest) (*dto.PaginationBodyResponseList[dto.ProductView], error) {
 	products, err := productHandler.productService.GetProducts(ctx, reqDTO)
 	if err != nil {
 		res := &dto.ErrorResponse{}
@@ -139,7 +139,7 @@ func (productHandler *ProductHandler) GetProductById(ctx context.Context, reqDTO
 	return res, nil
 }
 
-func (productHandler *ProductHandler) GetProductsByCategoryId(ctx context.Context, reqDTO *dto.GetProductsByCategoryIdWithQueryParamRequest) (*dto.PaginationBodyResponseList[dto.ProductView], error) {
+func (productHandler *ProductHandler) GetProductsByCategoryId(ctx context.Context, reqDTO *dto.GetProductsByCategoryIdRequest) (*dto.PaginationBodyResponseList[dto.ProductView], error) {
 	products, err := productHandler.productService.GetProductsByCategoryId(ctx, reqDTO)
 	if err != nil {
 		res := &dto.ErrorResponse{}
@@ -175,7 +175,7 @@ func (productHandler *ProductHandler) CreateProduct(ctx context.Context, reqDTO 
 	return res, nil
 }
 
-func (productHandler *ProductHandler) UpdateProductById(ctx context.Context, reqDTO *dto.UpdateProductRequest) (*dto.SuccessResponse, error) {
+func (productHandler *ProductHandler) UpdateProductById(ctx context.Context, reqDTO *dto.UpdateProductByIdRequest) (*dto.SuccessResponse, error) {
 	if err := productHandler.productService.UpdateProductById(ctx, reqDTO); err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
@@ -191,7 +191,7 @@ func (productHandler *ProductHandler) UpdateProductById(ctx context.Context, req
 	return res, nil
 }
 
-func (productHandler *ProductHandler) DeleteProductById(ctx context.Context, reqDTO *dto.DeleteProductRequest) (*dto.SuccessResponse, error) {
+func (productHandler *ProductHandler) DeleteProductById(ctx context.Context, reqDTO *dto.DeleteProductByIdRequest) (*dto.SuccessResponse, error) {
 	if err := productHandler.productService.DeleteProductById(ctx, reqDTO); err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
@@ -212,24 +212,24 @@ func (productHandler *ProductHandler) SyncAllProductsToElasticsearch(ctx context
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusInternalServerError
 		res.Code = "ERR_INTERNAL_SERVER"
-		res.Message = "Sync products to Elasticsearch failed"
+		res.Message = "Sync all products to Elasticsearch failed"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
 
 	res := &dto.SuccessResponse{}
 	res.Body.Code = "OK"
-	res.Body.Message = "Sync products to Elasticsearch successful"
+	res.Body.Message = "Sync all products to Elasticsearch successful"
 	return res, nil
 }
 
-func (productHandler *ProductHandler) SearchProducts(ctx context.Context, reqDTO *dto.SearchProductsWithQueryParamRequest) (*dto.PaginationBodyResponseList[dto.ProductView], error) {
-	products, err := productHandler.productService.SearchProducts(ctx, reqDTO)
+func (productHandler *ProductHandler) GetProducsWithElasticsearch(ctx context.Context, reqDTO *dto.GetProductsWithElasticsearchRequest) (*dto.PaginationBodyResponseList[dto.ProductView], error) {
+	products, err := productHandler.productService.GetProductsWithElasticsearch(ctx, reqDTO)
 	if err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusInternalServerError
 		res.Code = "ERR_INTERNAL_SERVER"
-		res.Message = "Search products failed"
+		res.Message = "Get products with Elasticsearch failed"
 		res.Details = []string{err.Error()}
 		return nil, res
 	}
@@ -237,7 +237,7 @@ func (productHandler *ProductHandler) SearchProducts(ctx context.Context, reqDTO
 	data := dto.ToListProductView(products)
 	res := &dto.PaginationBodyResponseList[dto.ProductView]{}
 	res.Body.Code = "OK"
-	res.Body.Message = "Search products successful"
+	res.Body.Message = "Get products with Elasticsearch successful"
 	res.Body.Data = data
 	res.Body.Total = len(data)
 	return res, nil

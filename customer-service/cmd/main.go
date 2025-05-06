@@ -19,7 +19,7 @@ import (
 var humaDocsEmbedded = `<!doctype html>
 <html>
   <head>
-    <title>API Reference</title>
+    <title>HelloWorld APIs</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
   </head>
@@ -38,8 +38,9 @@ func main() {
 	defer infrastructure.DB.Close()
 	infrastructure.InitRedisClient()
 	defer infrastructure.RedisClient.Close()
+	infrastructure.InitElasticsearchClient()
 
-	humaCfg := huma.DefaultConfig("Catalog Service", "v1.0.0")
+	humaCfg := huma.DefaultConfig("Customer Service", "v1.0.0")
 	humaCfg.DocsPath = ""
 	humaCfg.JSONSchemaDialect = ""
 	humaCfg.CreateHooks = nil
@@ -82,11 +83,14 @@ func main() {
 	invoiceRepository := repository.NewInvoiceRepository()
 	invoiceDetailRepository := repository.NewInvoiceDetailRepository()
 
+	// Initialize Elasticsearch repository
+	invoiceElasticsearchRepository := repository.NewInvoiceElasticsearchRepository()
+
 	// Initialize services
 	userService := service.NewUserService(userRepository, cartRepository)
 	cartService := service.NewCartService(cartRepository)
 	cartItemService := service.NewCartItemService(cartItemRepository, cartRepository)
-	invoiceService := service.NewInvoiceService(invoiceRepository)
+	invoiceService := service.NewInvoiceService(invoiceRepository, invoiceElasticsearchRepository)
 	invoiceDetailService := service.NewInvoiceDetailService(invoiceDetailRepository)
 
 	// Initialize handlers

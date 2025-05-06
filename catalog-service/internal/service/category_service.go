@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"thanhldt060802/internal/dto"
 	"thanhldt060802/internal/model"
 	"thanhldt060802/internal/repository"
@@ -15,18 +16,19 @@ type categoryService struct {
 }
 
 type CategoryService interface {
-	GetCategories(ctx context.Context, reqDTO *dto.GetCategoriesWithQueryParamRequest) ([]model.Category, error)
+	GetCategories(ctx context.Context, reqDTO *dto.GetCategoriesRequest) ([]model.Category, error)
 	GetCategoryById(ctx context.Context, reqDTO *dto.GetCategoryByIdRequest) (*model.Category, error)
+	GetCategoryByName(ctx context.Context, reqDTO *dto.GetCategoryByNameRequest) (*model.Category, error)
 	CreateCategory(ctx context.Context, reqDTO *dto.CreateCategoryRequest) error
-	UpdateCategoryById(ctx context.Context, reqDTO *dto.UpdateCategoryRequest) error
-	DeleteCategoryById(ctx context.Context, reqDTO *dto.DeleteCategoryRequest) error
+	UpdateCategoryById(ctx context.Context, reqDTO *dto.UpdateCategoryByIdRequest) error
+	DeleteCategoryById(ctx context.Context, reqDTO *dto.DeleteCategoryByIdRequest) error
 }
 
 func NewCategoryService(categoryRepository repository.CategoryRepository) CategoryService {
 	return &categoryService{categoryRepository: categoryRepository}
 }
 
-func (categoryService *categoryService) GetCategories(ctx context.Context, reqDTO *dto.GetCategoriesWithQueryParamRequest) ([]model.Category, error) {
+func (categoryService *categoryService) GetCategories(ctx context.Context, reqDTO *dto.GetCategoriesRequest) ([]model.Category, error) {
 	sortFields := utils.ParseSortBy(reqDTO.SortBy)
 
 	categories, err := categoryService.categoryRepository.Get(ctx, reqDTO.Offset, reqDTO.Limit, sortFields)
@@ -46,10 +48,22 @@ func (categoryService *categoryService) GetCategoryById(ctx context.Context, req
 	return foundCategory, nil
 }
 
+func (categoryService *categoryService) GetCategoryByName(ctx context.Context, reqDTO *dto.GetCategoryByNameRequest) (*model.Category, error) {
+	foundCategory, err := categoryService.categoryRepository.GetByName(ctx, reqDTO.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return foundCategory, nil
+}
+
 func (categoryService *categoryService) CreateCategory(ctx context.Context, reqDTO *dto.CreateCategoryRequest) error {
+	if _, err := categoryService.categoryRepository.GetByName(ctx, reqDTO.Body.Name); err != nil {
+		return fmt.Errorf("name of category already exists")
+	}
+
 	newCategory := model.Category{
-		Name:        reqDTO.Body.Name,
-		Description: reqDTO.Body.Description,
+		Name: reqDTO.Body.Name,
 	}
 	if err := categoryService.categoryRepository.Create(ctx, &newCategory); err != nil {
 		return err
@@ -58,33 +72,30 @@ func (categoryService *categoryService) CreateCategory(ctx context.Context, reqD
 	return nil
 }
 
-func (categoryService *categoryService) UpdateCategoryById(ctx context.Context, reqDTO *dto.UpdateCategoryRequest) error {
+func (categoryService *categoryService) UpdateCategoryById(ctx context.Context, reqDTO *dto.UpdateCategoryByIdRequest) error {
 	foundCategory, err := categoryService.categoryRepository.GetById(ctx, reqDTO.Id)
 	if err != nil {
-		return fmt.Errorf("id of category is not valid")
+		return fmt.Errorf("id of category not found")
 	}
 
-	if reqDTO.Body.Name != nil {
+	if reqDTO.Body.Name != nil && strings.EqualFold(foundCategory.Name, *reqDTO.Body.Name) {
 		if _, err := categoryService.categoryRepository.GetByName(ctx, *reqDTO.Body.Name); err == nil {
-			return fmt.Errorf("name of category is already exists")
+			return fmt.Errorf("name of category already exists")
 		}
 		foundCategory.Name = *reqDTO.Body.Name
 	}
-	if reqDTO.Body.Description != nil {
-		foundCategory.Description = *reqDTO.Body.Description
-	}
 	foundCategory.UpdatedAt = time.Now().UTC()
 
-	if err := categoryService.categoryRepository.UpdateById(ctx, reqDTO.Id, foundCategory); err != nil {
+	if err := categoryService.categoryRepository.Update(ctx, foundCategory); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (categoryService *categoryService) DeleteCategoryById(ctx context.Context, reqDTO *dto.DeleteCategoryRequest) error {
+func (categoryService *categoryService) DeleteCategoryById(ctx context.Context, reqDTO *dto.DeleteCategoryByIdRequest) error {
 	if _, err := categoryService.categoryRepository.GetById(ctx, reqDTO.Id); err != nil {
-		return fmt.Errorf("id of category is not valid")
+		return fmt.Errorf("id of category not found")
 	}
 
 	if err := categoryService.categoryRepository.DeleteById(ctx, reqDTO.Id); err != nil {

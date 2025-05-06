@@ -18,6 +18,8 @@ type InvoiceRepository interface {
 	Create(ctx context.Context, newInvoice *model.Invoice) error
 	UpdateById(ctx context.Context, id int64, updatedInvoice *model.Invoice) error
 	DeleteById(ctx context.Context, id int64) error
+
+	GetAll(ctx context.Context) ([]model.Invoice, error)
 }
 
 func NewInvoiceRepository() InvoiceRepository {
@@ -76,4 +78,17 @@ func (invoiceRepository *invoiceRepository) UpdateById(ctx context.Context, id i
 func (invoiceRepository *invoiceRepository) DeleteById(ctx context.Context, id int64) error {
 	_, err := infrastructure.DB.NewDelete().Model(&model.Invoice{}).Where("id = ?", id).Exec(ctx)
 	return err
+}
+
+// Integrate with Elasticsearch
+
+func (invoiceRepository *invoiceRepository) GetAll(ctx context.Context) ([]model.Invoice, error) {
+	var invoices []model.Invoice
+
+	err := infrastructure.DB.NewSelect().Model(&invoices).Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return invoices, nil
 }

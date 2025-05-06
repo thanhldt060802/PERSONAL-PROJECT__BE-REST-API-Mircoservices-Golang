@@ -2,7 +2,6 @@ package utils
 
 import (
 	"strings"
-	"thanhldt060802/internal/model"
 )
 
 type SortField struct {
@@ -45,36 +44,36 @@ func ParseSortBy(sortBy string) []SortField {
 	return sortFields
 }
 
-func ParseSortByUsingElasticsearchForProduct(sortBy string) []map[string]interface{} {
-	var sortFields []map[string]interface{}
+// func ParseSortByUsingElasticsearchForProduct(sortBy string) []map[string]interface{} {
+// 	var sortFields []map[string]interface{}
 
-	items := strings.Split(sortBy, ",")
-	for _, item := range items {
-		item = strings.TrimSpace(item)
-		if item == "" {
-			continue
-		}
+// 	items := strings.Split(sortBy, ",")
+// 	for _, item := range items {
+// 		item = strings.TrimSpace(item)
+// 		if item == "" {
+// 			continue
+// 		}
 
-		var field string
-		var direction string
+// 		var field string
+// 		var direction string
 
-		if strings.Contains(item, ":") {
-			parts := strings.SplitN(item, ":", 2)
-			field = parts[0]
-			if strings.ToLower(parts[1]) == "desc" {
-				direction = "desc"
-			} else {
-				direction = "asc"
-			}
-		} else {
-			field = item
-			direction = "asc"
-		}
+// 		if strings.Contains(item, ":") {
+// 			parts := strings.SplitN(item, ":", 2)
+// 			field = parts[0]
+// 			if strings.ToLower(parts[1]) == "desc" {
+// 				direction = "desc"
+// 			} else {
+// 				direction = "asc"
+// 			}
+// 		} else {
+// 			field = item
+// 			direction = "asc"
+// 		}
 
-		sortFields = append(sortFields, map[string]interface{}{
-			model.ProductValidSortField[field]: direction,
-		})
-	}
+// 		sortFields = append(sortFields, map[string]interface{}{
+// 			model.ProductValidSortField[field]: direction,
+// 		})
+// 	}
 
-	return sortFields
-}
+// 	return sortFields
+// }

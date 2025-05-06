@@ -6,20 +6,18 @@ import (
 )
 
 type CategoryView struct {
-	Id          int64     `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	Id        int64     `json:"id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func ToCategoryView(category *model.Category) *CategoryView {
 	return &CategoryView{
-		Id:          category.Id,
-		Name:        category.Name,
-		Description: category.Description,
-		CreatedAt:   category.CreatedAt,
-		UpdatedAt:   category.UpdatedAt,
+		Id:        category.Id,
+		Name:      category.Name,
+		CreatedAt: category.CreatedAt,
+		UpdatedAt: category.UpdatedAt,
 	}
 }
 

@@ -3,61 +3,54 @@ package model
 import (
 	"time"
 
-	"github.com/shopspring/decimal"
 	"github.com/uptrace/bun"
 )
 
 type Product struct {
 	bun.BaseModel `bun:"table:products"`
 
-	Id                 int64           `bun:"id,pk,autoincrement" json:"id"`
-	Name               string          `bun:"name,notnull" json:"name"`
-	Description        string          `bun:"description,notnull" json:"description"`
-	Price              decimal.Decimal `bun:"price,notnull" json:"price"`
-	DiscountPercentage int32           `bun:"discount_percentage,notnull" json:"discount_percentage"`
-	Stock              int32           `bun:"stock,notnull" json:"stock"`
-	ImageURL           string          `bun:"image_url,notnull" json:"image_url"`
-	CategoryId         int64           `bun:"category_id,notnull" json:"category_id"`
-	CreatedAt          time.Time       `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt          time.Time       `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
+	Id                 int64     `bun:"id,pk,autoincrement" json:"id"`
+	Name               string    `bun:"name,notnull" json:"name"`
+	Description        string    `bun:"description,notnull" json:"description"`
+	Sex                string    `bun:"sex,notnull" json:"sex"`
+	Price              int64     `bun:"price,notnull" json:"price"`
+	DiscountPercentage int32     `bun:"discount_percentage,notnull" json:"discount_percentage"`
+	Stock              int32     `bun:"stock,notnull" json:"stock"`
+	ImageURL           string    `bun:"image_url,notnull" json:"image_url"`
+	CategoryId         int64     `bun:"category_id,notnull" json:"category_id"`
+	CreatedAt          time.Time `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt          time.Time `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
 }
 
-var ProductMappingIndexForElasticsearch = `
+// Integrate with Elasticsearch
+
+var ProductSchemaElasticsearch = `
 {
-  "settings": {
-    "analysis": {
-      "analyzer": {
-        "ngram_analyzer": {
-          "type": "custom",
-          "tokenizer": "ngram_tokenizer",
-          "filter": ["lowercase"]
-        }
-      },
-      "tokenizer": {
-        "ngram_tokenizer": {
-          "type": "edge_ngram",
-          "min_gram": 1,
-          "max_gram": 10,
-          "token_chars": ["digit"]
-        }
-      }
-    }
-  },
   "mappings": {
     "properties": {
       "id": { "type": "long" },
-      "name": { "type": "text", "analyzer": "standard" },
-      "description": { "type": "text", "analyzer": "standard" },
-      "price": {
-        "type": "double",
+      "name": {
+        "type": "text",
+        "analyzer": "standard",
         "fields": {
-          "as_text": {
-            "type": "text",
-            "analyzer": "ngram_analyzer",
-            "search_analyzer": "standard"
-          }
+          "keyword": { "type": "keyword" }
         }
       },
+      "description": {
+        "type": "text",
+        "analyzer": "standard",
+        "fields": {
+          "keyword": { "type": "keyword" }
+        }
+      },
+      "sex": {
+        "type": "text",
+        "analyzer": "standard",
+        "fields": {
+          "keyword": { "type": "keyword" }
+        }
+      },
+      "price": { "type": "long" },
       "discount_percentage": { "type": "integer" },
       "stock": { "type": "integer" },
       "image_url": { "type": "keyword" },
@@ -68,11 +61,12 @@ var ProductMappingIndexForElasticsearch = `
   }
 }`
 
-var ProductValidSortField = map[string]string{
+var MapSortFieldProductSchemaElasticsearch = map[string]string{
 	"id":                  "id",
 	"name":                "name.keyword",
 	"description":         "description.keyword",
-	"price":               "price.keyword",
+	"sex":                 "sex.keyword",
+	"price":               "price",
 	"discount_percentage": "discount_percentage",
 	"stock":               "stock",
 	"image_url":           "image_url.keyword",

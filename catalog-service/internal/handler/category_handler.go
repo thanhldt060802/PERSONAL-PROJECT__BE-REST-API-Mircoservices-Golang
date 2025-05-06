@@ -33,11 +33,20 @@ func NewCategoryHandler(api huma.API, categorieservice service.CategoryService, 
 	// Get category by id
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodGet,
-		Path:        "/categories/{id}",
-		Summary:     "/categories/{id}",
+		Path:        "/categories/id/{id}",
+		Summary:     "/categories/id/{id}",
 		Description: "Get category by id.",
 		Tags:        []string{"Category"},
 	}, categoryHandler.GetCategoryById)
+
+	// Get category by name
+	huma.Register(api, huma.Operation{
+		Method:      http.MethodGet,
+		Path:        "/categories/name/{name}",
+		Summary:     "/categories/name/{name}",
+		Description: "Get category by name.",
+		Tags:        []string{"Category"},
+	}, categoryHandler.GetCategoryByName)
 
 	// Create category
 	huma.Register(api, huma.Operation{
@@ -52,8 +61,8 @@ func NewCategoryHandler(api huma.API, categorieservice service.CategoryService, 
 	// Update category by id
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodPut,
-		Path:        "/categories/{id}",
-		Summary:     "/categories/{id}",
+		Path:        "/categories/id/{id}",
+		Summary:     "/categories/id/{id}",
 		Description: "Update category by id.",
 		Tags:        []string{"Category"},
 		Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
@@ -62,8 +71,8 @@ func NewCategoryHandler(api huma.API, categorieservice service.CategoryService, 
 	// Delete category by id
 	huma.Register(api, huma.Operation{
 		Method:      http.MethodDelete,
-		Path:        "/categories/{id}",
-		Summary:     "/categories/{id}",
+		Path:        "/categories/id/{id}",
+		Summary:     "/categories/id/{id}",
 		Description: "Delete category by id.",
 		Tags:        []string{"Category"},
 		Middlewares: huma.Middlewares{authMiddleware.Authentication, authMiddleware.RequireAdmin},
@@ -72,7 +81,7 @@ func NewCategoryHandler(api huma.API, categorieservice service.CategoryService, 
 	return categoryHandler
 }
 
-func (categoryHandler *CategoryHandler) GetCategories(ctx context.Context, reqDTO *dto.GetCategoriesWithQueryParamRequest) (*dto.PaginationBodyResponseList[dto.CategoryView], error) {
+func (categoryHandler *CategoryHandler) GetCategories(ctx context.Context, reqDTO *dto.GetCategoriesRequest) (*dto.PaginationBodyResponseList[dto.CategoryView], error) {
 	categories, err := categoryHandler.categorieservice.GetCategories(ctx, reqDTO)
 	if err != nil {
 		res := &dto.ErrorResponse{}
@@ -111,6 +120,25 @@ func (categoryHandler *CategoryHandler) GetCategoryById(ctx context.Context, req
 	return res, nil
 }
 
+func (categoryHandler *CategoryHandler) GetCategoryByName(ctx context.Context, reqDTO *dto.GetCategoryByNameRequest) (*dto.BodyResponse[dto.CategoryView], error) {
+	foundCategory, err := categoryHandler.categorieservice.GetCategoryByName(ctx, reqDTO)
+	if err != nil {
+		res := &dto.ErrorResponse{}
+		res.Status = http.StatusBadRequest
+		res.Code = "ERR_BAD_REQUEST"
+		res.Message = "Get category by name failed"
+		res.Details = []string{err.Error()}
+		return nil, res
+	}
+
+	data := dto.ToCategoryView(foundCategory)
+	res := &dto.BodyResponse[dto.CategoryView]{}
+	res.Body.Code = "OK"
+	res.Body.Message = "Get category by name successful"
+	res.Body.Data = *data
+	return res, nil
+}
+
 func (categoryHandler *CategoryHandler) CreateCategory(ctx context.Context, reqDTO *dto.CreateCategoryRequest) (*dto.SuccessResponse, error) {
 	if err := categoryHandler.categorieservice.CreateCategory(ctx, reqDTO); err != nil {
 		res := &dto.ErrorResponse{}
@@ -127,7 +155,7 @@ func (categoryHandler *CategoryHandler) CreateCategory(ctx context.Context, reqD
 	return res, nil
 }
 
-func (categoryHandler *CategoryHandler) UpdateCategoryById(ctx context.Context, reqDTO *dto.UpdateCategoryRequest) (*dto.SuccessResponse, error) {
+func (categoryHandler *CategoryHandler) UpdateCategoryById(ctx context.Context, reqDTO *dto.UpdateCategoryByIdRequest) (*dto.SuccessResponse, error) {
 	if err := categoryHandler.categorieservice.UpdateCategoryById(ctx, reqDTO); err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
@@ -143,7 +171,7 @@ func (categoryHandler *CategoryHandler) UpdateCategoryById(ctx context.Context, 
 	return res, nil
 }
 
-func (categoryHandler *CategoryHandler) DeleteCategoryById(ctx context.Context, reqDTO *dto.DeleteCategoryRequest) (*dto.SuccessResponse, error) {
+func (categoryHandler *CategoryHandler) DeleteCategoryById(ctx context.Context, reqDTO *dto.DeleteCategoryByIdRequest) (*dto.SuccessResponse, error) {
 	if err := categoryHandler.categorieservice.DeleteCategoryById(ctx, reqDTO); err != nil {
 		res := &dto.ErrorResponse{}
 		res.Status = http.StatusBadRequest
